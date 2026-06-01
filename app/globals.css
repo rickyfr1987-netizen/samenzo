@@ -1,0 +1,54 @@
+:root {
+  color-scheme: light;
+  --background: #fbfaf6;
+  --foreground: #25312b;
+  --muted: #6f766f;
+  --surface: #ffffff;
+  --border: #dedbd2;
+  --accent: #6f8a73;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.placeholder {
+  margin: 0 auto;
+  max-width: 760px;
+  padding: 32px 0;
+}
+
+.placeholder h1 {
+  font-size: 2rem;
+  line-height: 1.2;
+  margin: 0 0 12px;
+}
+
+.placeholder p {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+}
