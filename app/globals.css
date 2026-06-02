@@ -34,6 +34,64 @@ a {
   padding: 24px;
 }
 
+.app-header {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: auto 1fr auto;
+  margin: 0 auto 8px;
+  max-width: 1120px;
+  padding-bottom: 18px;
+}
+
+.app-header__brand {
+  color: var(--foreground);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.app-header__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.app-header__nav a {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.app-header__profile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 10px 12px;
+}
+
+.app-header__profile span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.app-header__profile strong {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.app-header__error {
+  color: #9b3d32;
+  font-size: 0.85rem;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .placeholder {
   margin: 0 auto;
   max-width: 760px;
@@ -398,6 +456,19 @@ a {
 }
 
 @media (max-width: 560px) {
+  .app-shell {
+    padding: 18px;
+  }
+
+  .app-header {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .app-header__profile {
+    min-width: 0;
+  }
+
   .healthcheck-list div {
     grid-template-columns: 1fr;
   }

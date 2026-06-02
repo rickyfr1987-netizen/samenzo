@@ -30,25 +30,6 @@ export type PlanningMoment = {
   categoryName: string | null;
 };
 
-export type PlanningAuthContext = {
-  isAuthenticated: boolean;
-  authUserId: string | null;
-};
-
-export async function fetchPlanningAuthContext(): Promise<PlanningAuthContext> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.getSession();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return {
-    isAuthenticated: Boolean(data.session),
-    authUserId: data.session?.user.id ?? null
-  };
-}
-
 export async function fetchPlanningMoments(): Promise<PlanningMoment[]> {
   const supabase = getSupabaseBrowserClient();
 

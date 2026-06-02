@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppHeader } from "@/components/app-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,10 @@ export default function RootLayout({
   return (
     <html lang="nl">
       <body>
-        <main className="app-shell">{children}</main>
+        <div className="app-shell">
+          <AppHeader />
+          <main>{children}</main>
+        </div>
       </body>
     </html>
   );

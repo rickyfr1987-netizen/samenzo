@@ -10,17 +10,19 @@ import {
   writeStoredDevelopmentProfileId
 } from "@/src/lib/dev/profile-context";
 import {
-  fetchPlanningAuthContext,
   fetchPlanningMoments,
-  type PlanningAuthContext,
   type PlanningMoment
 } from "@/src/lib/planning/moments";
+import {
+  fetchCurrentSamzoContext,
+  type CurrentSamzoContext
+} from "@/src/lib/samzo/current-context";
 
 type PlanningState =
   | { status: "loading" }
   | {
       status: "ready";
-      authContext: PlanningAuthContext;
+      context: CurrentSamzoContext;
       moments: PlanningMoment[];
     }
   | { status: "error"; message: string };
@@ -81,12 +83,12 @@ export default function PlanningPage() {
     async function loadPlanning() {
       try {
         const [authContext, moments] = await Promise.all([
-          fetchPlanningAuthContext(),
+          fetchCurrentSamzoContext(),
           fetchPlanningMoments()
         ]);
 
         if (isMounted) {
-          setPlanning({ status: "ready", authContext, moments });
+          setPlanning({ status: "ready", context: authContext, moments });
         }
       } catch (error: unknown) {
         if (isMounted) {
@@ -115,8 +117,7 @@ export default function PlanningPage() {
     setSelectedDevelopmentProfileId(nextProfileId);
   }
 
-  const authContext =
-    planning.status === "ready" ? planning.authContext : null;
+  const context = planning.status === "ready" ? planning.context : null;
 
   return (
     <section className="planning-page">
@@ -124,8 +125,8 @@ export default function PlanningPage() {
         <p className="planning-page__eyebrow">Gemeenschappelijke werkelijkheid</p>
         <h1>Planning</h1>
         <p>
-          Zichtbare momenten uit Supabase. Wat je hier ziet volgt de bestaande
-          RLS-regels.
+          Zichtbare momenten uit Supabase voor de huidige Auth sessie. Wat je
+          hier ziet komt rechtstreeks door de bestaande RLS-regels.
         </p>
       </div>
 
@@ -136,22 +137,25 @@ export default function PlanningPage() {
         >
           <div>
             <p className="planning-dev-panel__label">Alleen ontwikkeling</p>
-            <h2 id="development-profile-heading">SAM&ZO testprofiel</h2>
+            <h2 id="development-profile-heading">
+              Verwachte seed-zichtbaarheid
+            </h2>
             <p>
-              Deze keuze staat alleen in localStorage. Supabase RLS gebruikt
-              nog steeds de Auth-sessie en personen.auth_user_id.
+              Deze keuze is alleen uitleg bij de seeddata. Supabase RLS gebruikt
+              de echte Auth-sessie, personen.auth_user_id en het gekoppelde
+              profiel.
             </p>
           </div>
 
           <label className="planning-dev-panel__field">
-            <span>Geselecteerd testprofiel</span>
+            <span>Seedprofiel voor uitleg</span>
             <select
               onChange={(event) =>
                 handleDevelopmentProfileChange(event.target.value)
               }
               value={selectedDevelopmentProfileId ?? ""}
             >
-              <option value="">Geen lokaal testprofiel</option>
+              <option value="">Geen seedprofiel gekozen</option>
               {DEVELOPMENT_PROFILES.map((profile) => (
                 <option key={profile.id} value={profile.id}>
                   {profile.name}
@@ -164,13 +168,20 @@ export default function PlanningPage() {
             <div>
               <dt>Supabase Auth</dt>
               <dd>
-                {authContext?.isAuthenticated
+                {context?.authUser
                   ? "Aangemeld"
                   : "Niet aangemeld"}
               </dd>
             </div>
             <div>
-              <dt>Actief testprofiel</dt>
+              <dt>Huidig profiel</dt>
+              <dd>
+                {context?.currentProfiel?.weergavenaam ??
+                  "Geen actief gekoppeld profiel"}
+              </dd>
+            </div>
+            <div>
+              <dt>Seedprofiel</dt>
               <dd>{selectedDevelopmentProfile?.name ?? "Geen"}</dd>
             </div>
             <div>
@@ -207,10 +218,9 @@ export default function PlanningPage() {
         <div className="planning-state">
           <h2>Geen zichtbare momenten</h2>
           <p>
-            RLS geeft geen rijen terug voor deze Supabase sessie. Zonder
-            aangemelde Auth-gebruiker met een gekoppelde personen.auth_user_id
-            blijft current_profiel_id() leeg, ook als er lokaal een testprofiel
-            is gekozen.
+            RLS geeft geen momenten terug voor deze Auth sessie. Controleer of
+            de ingelogde Supabase gebruiker is gekoppeld aan
+            personen.auth_user_id en minstens een actief profiel heeft.
           </p>
         </div>
       ) : null}

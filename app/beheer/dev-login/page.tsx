@@ -3,19 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  fetchCurrentSamzoIdentity,
-  type CurrentSamzoIdentity
+  fetchCurrentSamzoContext,
+  type CurrentSamzoContext
 } from "@/src/lib/dev/auth-context";
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
-
-import type { User } from "@supabase/supabase-js";
 
 type DevLoginState =
   | { status: "loading" }
   | {
       status: "ready";
-      user: User | null;
-      identity: CurrentSamzoIdentity;
+      context: CurrentSamzoContext;
       message: string | null;
     }
   | { status: "error"; message: string };
@@ -34,20 +31,11 @@ export default function DevLoginPage() {
 
   const refreshAuthState = useCallback(
     async (message: string | null = null) => {
-      const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      const user = data.session?.user ?? null;
-      const identity = await fetchCurrentSamzoIdentity(user?.id ?? null);
+      const context = await fetchCurrentSamzoContext();
 
       setLoginState({
         status: "ready",
-        user,
-        identity,
+        context,
         message
       });
     },
@@ -150,9 +138,8 @@ export default function DevLoginPage() {
     }
   }
 
-  const user = loginState.status === "ready" ? loginState.user : null;
-  const identity =
-    loginState.status === "ready" ? loginState.identity : null;
+  const context = loginState.status === "ready" ? loginState.context : null;
+  const user = context?.authUser ?? null;
   const isLoggedIn = Boolean(user);
 
   return (
@@ -161,9 +148,9 @@ export default function DevLoginPage() {
         <p className="dev-login-page__eyebrow">Alleen ontwikkeling</p>
         <h1>Supabase dev-login</h1>
         <p>
-          Gebruik deze tijdelijke beheerpagina om met echte Supabase Auth
-          sessies te testen. De frontend gebruikt alleen de publieke anon key;
-          RLS blijft bepalen welke SAM&ZO data zichtbaar is.
+          Gebruik deze tijdelijke beheerpagina om echte Supabase Auth sessies te
+          testen. Auth is nu de bron van waarheid; RLS bepaalt welke SAM&ZO data
+          bij de gekoppelde persoon en profielen zichtbaar is.
         </p>
       </div>
 
@@ -232,21 +219,41 @@ export default function DevLoginPage() {
               <div>
                 <dt>SAM&ZO persoon</dt>
                 <dd>
-                  {identity?.persoon
-                    ? `${identity.persoon.accountnaam ?? identity.persoon.email} (${identity.persoon.systeemrol})`
+                  {context?.persoon
+                    ? `${context.persoon.accountnaam ?? context.persoon.email} (${context.persoon.systeemrol})`
                     : "Niet gekoppeld"}
                 </dd>
               </div>
               <div>
-                <dt>SAM&ZO profiel</dt>
-                <dd>{identity?.profiel?.weergavenaam ?? "Niet gevonden"}</dd>
+                <dt>Actieve profielen</dt>
+                <dd>
+                  {context?.profielen.length
+                    ? context.profielen
+                        .map((profiel) => profiel.weergavenaam)
+                        .join(", ")
+                    : "Geen actief profiel gevonden"}
+                </dd>
+              </div>
+              <div>
+                <dt>Huidig profiel</dt>
+                <dd>
+                  {context?.currentProfiel?.weergavenaam ??
+                    "Nog geen automatisch profiel"}
+                </dd>
               </div>
             </dl>
           ) : null}
-          {loginState.status === "ready" && user && !identity?.persoon ? (
+          {loginState.status === "ready" && user && !context?.persoon ? (
             <p className="dev-login-note">
               Auth user bestaat, maar personen.auth_user_id is nog niet aan
               deze user id gekoppeld.
+            </p>
+          ) : null}
+          {loginState.status === "ready" &&
+          context?.persoon &&
+          context.profielen.length === 0 ? (
+            <p className="dev-login-note">
+              Persoon is gekoppeld, maar RLS geeft geen actief profiel terug.
             </p>
           ) : null}
           {loginState.status === "ready" && loginState.message ? (
