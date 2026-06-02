@@ -5,6 +5,10 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  fetchLijstenForMoment,
+  type VisibleLijst
+} from "@/src/lib/lijsten/items";
+import {
   fetchMomentDetail,
   type MomentDetailParticipation,
   type MomentDetailRole,
@@ -31,6 +35,7 @@ type MomentDetailState =
       status: "ready";
       context: CurrentSamzoContext;
       detail: MomentDetailData;
+      linkedLists: VisibleLijst[];
     }
   | { status: "error"; message: string };
 
@@ -204,13 +209,14 @@ export default function MomentDetailPage() {
       }
 
       try {
-        const [context, detail] = await Promise.all([
+        const [context, detail, linkedLists] = await Promise.all([
           fetchCurrentSamzoContext(),
-          fetchMomentDetail(momentId)
+          fetchMomentDetail(momentId),
+          fetchLijstenForMoment(momentId)
         ]);
 
         if (isMounted) {
-          setDetailState({ status: "ready", context, detail });
+          setDetailState({ status: "ready", context, detail, linkedLists });
         }
       } catch (error: unknown) {
         if (isMounted) {
@@ -233,12 +239,13 @@ export default function MomentDetailPage() {
   }, [momentId]);
 
   async function refreshMomentDetail(successMessage?: string) {
-    const [context, detail] = await Promise.all([
+    const [context, detail, linkedLists] = await Promise.all([
       fetchCurrentSamzoContext(),
-      fetchMomentDetail(momentId)
+      fetchMomentDetail(momentId),
+      fetchLijstenForMoment(momentId)
     ]);
 
-    setDetailState({ status: "ready", context, detail });
+    setDetailState({ status: "ready", context, detail, linkedLists });
 
     if (successMessage) {
       setActionState({ status: "success", message: successMessage });
@@ -663,6 +670,69 @@ export default function MomentDetailPage() {
                     </div>
                     <h3>{group.name}</h3>
                     <p>{formatStatus(group.visibility)}</p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section
+            className="moment-detail-section"
+            aria-labelledby="moment-lists-heading"
+          >
+            <h2 id="moment-lists-heading">Gekoppelde lijsten en taken</h2>
+            {detailState.linkedLists.length === 0 ? (
+              <p className="moment-detail-empty">
+                Geen gekoppelde lijsten of taken zichtbaar voor deze sessie.
+              </p>
+            ) : (
+              <div className="moment-detail-list">
+                {detailState.linkedLists.map((list) => (
+                  <article className="moment-detail-mini-card" key={list.id}>
+                    <div className="moment-detail-mini-card__meta">
+                      <span>{list.categoryName ?? "Lijst"}</span>
+                      <span>{formatStatus(list.status)}</span>
+                    </div>
+                    <h3>{list.title}</h3>
+                    {list.description ? <p>{list.description}</p> : null}
+                    <p>
+                      {list.taskCount === 1
+                        ? "1 zichtbare taak"
+                        : `${list.taskCount} zichtbare taken`}
+                    </p>
+
+                    {list.tasks.length === 0 ? (
+                      <p className="moment-detail-empty">
+                        Geen taken zichtbaar.
+                      </p>
+                    ) : (
+                      <ul className="moment-detail-task-list">
+                        {list.tasks.map((task) => (
+                          <li key={task.id}>
+                            <div className="moment-detail-task-list__meta">
+                              <span>
+                                {task.sortOrder === null
+                                  ? "Geen volgorde"
+                                  : `Stap ${task.sortOrder}`}
+                              </span>
+                              <span>{formatStatus(task.status)}</span>
+                            </div>
+                            <strong>{task.title}</strong>
+                            {task.description ? <p>{task.description}</p> : null}
+                            {task.assignees.length > 0 ? (
+                              <div className="moment-detail-task-list__assignees">
+                                {task.assignees.map((assignee) => (
+                                  <span key={assignee.id}>
+                                    {assignee.profileName}:{" "}
+                                    {formatStatus(assignee.status)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </article>
                 ))}
               </div>
