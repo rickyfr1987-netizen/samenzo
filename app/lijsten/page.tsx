@@ -96,8 +96,8 @@ export default function LijstenPage() {
         <p className="lijsten-page__eyebrow">Uitvoeringslaag</p>
         <h1>Lijsten</h1>
         <p>
-          Lijsten helpen uitvoeren. Taken zijn praktische stappen die zichtbaar
-          zijn via de huidige Supabase Auth sessie en RLS-regels.
+          Lijsten helpen uitvoeren. Dit overzicht toont praktische lijsten als
+          rustige kaarten; taken en acties staan op de lijstdetailpagina.
         </p>
       </div>
 
@@ -129,9 +129,7 @@ export default function LijstenPage() {
       {lijsten.status === "ready" && !lijsten.context.authUser ? (
         <div className="lijsten-state">
           <h2>Nog niet ingelogd</h2>
-          <p>
-            Log in via beheer om lijsten en taken door RLS te laten bepalen.
-          </p>
+          <p>Log in via beheer om lijsten door RLS te laten bepalen.</p>
         </div>
       ) : null}
 
@@ -142,7 +140,7 @@ export default function LijstenPage() {
           <h2>Geen actief profiel</h2>
           <p>
             De ingelogde gebruiker heeft geen actief gekoppeld SAM&ZO profiel
-            voor deze read-only lijstweergave.
+            voor deze lijstweergave.
           </p>
         </div>
       ) : null}
@@ -152,79 +150,54 @@ export default function LijstenPage() {
       lijsten.lists.length === 0 ? (
         <div className="lijsten-state">
           <h2>Geen zichtbare lijsten</h2>
-          <p>
-            Er zijn geen praktische lijsten of taken zichtbaar voor dit profiel.
-          </p>
+          <p>Er zijn geen praktische lijsten zichtbaar voor dit profiel.</p>
         </div>
       ) : null}
 
       {lijsten.status === "ready" && lijsten.lists.length > 0 ? (
         <div className="lijsten-grid">
           {lijsten.lists.map((list) => (
-            <article className="lijsten-card" key={list.id}>
-              <div className="lijsten-card__meta">
-                <span>{list.categoryName ?? "Geen categorie"}</span>
-                <span>{formatStatus(list.status)}</span>
-              </div>
-              <h2>{list.title}</h2>
-              {list.description ? <p>{list.description}</p> : null}
-
-              <dl className="lijsten-card__facts">
-                <div>
-                  <dt>Taken</dt>
-                  <dd>{list.taskCount}</dd>
+            <Link
+              className="lijsten-card-link"
+              href={`/lijsten/${list.id}`}
+              key={list.id}
+            >
+              <article className="lijsten-card">
+                <div className="lijsten-card__meta">
+                  <span>{list.categoryName ?? "Geen categorie"}</span>
+                  <span>{formatStatus(list.status)}</span>
                 </div>
-                <div>
-                  <dt>Moment</dt>
-                  <dd>
-                    {list.linkedMoment ? (
-                      <Link href={`/planning/${list.linkedMoment.id}`}>
-                        {list.linkedMoment.title}
-                      </Link>
-                    ) : (
-                      "Niet gekoppeld"
-                    )}
-                  </dd>
-                </div>
-              </dl>
+                <h2>{list.title}</h2>
+                {list.description ? <p>{list.description}</p> : null}
 
-              {list.linkedMoment && formatMomentTime(list) ? (
-                <p className="lijsten-card__moment-time">
-                  {formatMomentTime(list)}
-                </p>
-              ) : null}
+                <dl className="lijsten-card__facts">
+                  <div>
+                    <dt>Taken</dt>
+                    <dd>{list.taskCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Geclaimd</dt>
+                    <dd>{list.claimedTaskCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Afgerond</dt>
+                    <dd>{list.completedTaskCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Moment</dt>
+                    <dd>{list.linkedMoment?.title ?? "Niet gekoppeld"}</dd>
+                  </div>
+                </dl>
 
-              {list.tasks.length === 0 ? (
-                <p className="lijsten-empty">Geen taken zichtbaar.</p>
-              ) : (
-                <ul className="lijsten-task-list">
-                  {list.tasks.map((task) => (
-                    <li key={task.id}>
-                      <div className="lijsten-task-list__header">
-                        <span>
-                          {task.sortOrder === null
-                            ? "Geen volgorde"
-                            : `Stap ${task.sortOrder}`}
-                        </span>
-                        <span>{formatStatus(task.status)}</span>
-                      </div>
-                      <h3>{task.title}</h3>
-                      {task.description ? <p>{task.description}</p> : null}
-                      {task.assignees.length > 0 ? (
-                        <div className="lijsten-task-list__assignees">
-                          {task.assignees.map((assignee) => (
-                            <span key={assignee.id}>
-                              {assignee.profileName}:{" "}
-                              {formatStatus(assignee.status)}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
+                {list.linkedMoment && formatMomentTime(list) ? (
+                  <p className="lijsten-card__moment-time">
+                    {formatMomentTime(list)}
+                  </p>
+                ) : null}
+
+                <p className="lijsten-card__open">Open lijst</p>
+              </article>
+            </Link>
           ))}
         </div>
       ) : null}

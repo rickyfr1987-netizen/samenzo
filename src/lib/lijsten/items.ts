@@ -7,6 +7,12 @@ type LinkedMomentRow = Pick<
   "id" | "titel" | "start_at" | "hele_dag" | "status"
 >;
 
+type SummaryTaskAssigneeRow = Pick<Tables<"taakuitvoerders">, "id" | "status">;
+
+type SummaryTaskRow = Pick<Tables<"taken">, "id" | "status"> & {
+  taakuitvoerders: SummaryTaskAssigneeRow[] | null;
+};
+
 type TaskAssigneeRow = Pick<
   Tables<"taakuitvoerders">,
   "id" | "profiel_id" | "status"
@@ -26,7 +32,7 @@ type TaskRow = Pick<
   taakuitvoerders: TaskAssigneeRow[] | null;
 };
 
-type ListRow = Pick<
+type ListSummaryRow = Pick<
   Tables<"lijsten">,
   | "id"
   | "titel"
@@ -37,6 +43,10 @@ type ListRow = Pick<
 > & {
   categorieen: Pick<Tables<"categorieen">, "naam"> | null;
   momenten: LinkedMomentRow | null;
+  taken: SummaryTaskRow[] | null;
+};
+
+type ListDetailRow = Omit<ListSummaryRow, "taken"> & {
   taken: TaskRow[] | null;
 };
 
@@ -58,7 +68,7 @@ export type LijstTask = {
   assignees: LijstTaskAssignee[];
 };
 
-export type VisibleLijst = {
+export type LijstSummary = {
   id: string;
   title: string;
   description: string | null;
@@ -72,10 +82,44 @@ export type VisibleLijst = {
     status: Tables<"momenten">["status"];
   } | null;
   taskCount: number;
+  claimedTaskCount: number;
+  completedTaskCount: number;
+};
+
+export type VisibleLijst = LijstSummary;
+
+export type LijstDetail = LijstSummary & {
   tasks: LijstTask[];
 };
 
-const LIST_SELECT = `
+const LIST_SUMMARY_SELECT = `
+  id,
+  titel,
+  beschrijving,
+  status,
+  gekoppeld_moment_id,
+  created_at,
+  categorieen (
+    naam
+  ),
+  momenten!lijsten_gekoppeld_moment_id_fkey (
+    id,
+    titel,
+    start_at,
+    hele_dag,
+    status
+  ),
+  taken (
+    id,
+    status,
+    taakuitvoerders (
+      id,
+      status
+    )
+  )
+`;
+
+const LIST_DETAIL_SELECT = `
   id,
   titel,
   beschrijving,
@@ -113,20 +157,40 @@ const LIST_SELECT = `
 `;
 
 export async function fetchVisibleLijsten(): Promise<VisibleLijst[]> {
-  return fetchLijsten();
+  return fetchLijstSummaries();
 }
 
 export async function fetchLijstenForMoment(
   momentId: string
 ): Promise<VisibleLijst[]> {
-  return fetchLijsten(momentId);
+  return fetchLijstSummaries(momentId);
 }
 
-async function fetchLijsten(momentId?: string): Promise<VisibleLijst[]> {
+export async function fetchLijstDetail(
+  lijstId: string
+): Promise<LijstDetail | null> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("lijsten")
+    .select(LIST_DETAIL_SELECT)
+    .eq("id", lijstId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ? mapListDetailRow(data as ListDetailRow) : null;
+}
+
+async function fetchLijstSummaries(
+  momentId?: string
+): Promise<LijstSummary[]> {
   const supabase = getSupabaseBrowserClient();
   let query = supabase
     .from("lijsten")
-    .select(LIST_SELECT)
+    .select(LIST_SUMMARY_SELECT)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
@@ -140,22 +204,11 @@ async function fetchLijsten(momentId?: string): Promise<VisibleLijst[]> {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as ListRow[]).map(mapListRow);
+  return ((data ?? []) as ListSummaryRow[]).map(mapListSummaryRow);
 }
 
-function mapListRow(list: ListRow): VisibleLijst {
-  const tasks = (list.taken ?? [])
-    .map(mapTaskRow)
-    .sort((first, second) => {
-      const firstOrder = first.sortOrder ?? Number.MAX_SAFE_INTEGER;
-      const secondOrder = second.sortOrder ?? Number.MAX_SAFE_INTEGER;
-
-      if (firstOrder !== secondOrder) {
-        return firstOrder - secondOrder;
-      }
-
-      return first.title.localeCompare(second.title, "nl");
-    });
+function mapListSummaryRow(list: ListSummaryRow): LijstSummary {
+  const tasks = list.taken ?? [];
 
   return {
     id: list.id,
@@ -173,7 +226,40 @@ function mapListRow(list: ListRow): VisibleLijst {
         }
       : null,
     taskCount: tasks.length,
-    tasks
+    claimedTaskCount: countClaimedTasks(tasks),
+    completedTaskCount: tasks.filter((task) => task.status === "afgerond")
+      .length
+  };
+}
+
+function mapListDetailRow(list: ListDetailRow): LijstDetail {
+  const sortedTasks = (list.taken ?? [])
+    .map(mapTaskRow)
+    .sort((first, second) => {
+      const firstOrder = first.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      const secondOrder = second.sortOrder ?? Number.MAX_SAFE_INTEGER;
+
+      if (firstOrder !== secondOrder) {
+        return firstOrder - secondOrder;
+      }
+
+      return first.title.localeCompare(second.title, "nl");
+    });
+  const summary = mapListSummaryRow({
+    ...list,
+    taken: list.taken?.map((task) => ({
+      id: task.id,
+      status: task.status,
+      taakuitvoerders: task.taakuitvoerders?.map((assignee) => ({
+        id: assignee.id,
+        status: assignee.status
+      })) ?? null
+    })) ?? null
+  });
+
+  return {
+    ...summary,
+    tasks: sortedTasks
   };
 }
 
@@ -193,4 +279,12 @@ function mapTaskRow(task: TaskRow): LijstTask {
       status: assignee.status
     }))
   };
+}
+
+function countClaimedTasks(tasks: SummaryTaskRow[]) {
+  return tasks.filter((task) =>
+    (task.taakuitvoerders ?? []).some(
+      (assignee) => assignee.status === "actief"
+    )
+  ).length;
 }
