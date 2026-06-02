@@ -1,6 +1,10 @@
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 
-import type { Tables, TablesInsert } from "@/src/lib/database.types";
+import type {
+  Tables,
+  TablesInsert,
+  TablesUpdate
+} from "@/src/lib/database.types";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 export type ParticipationStatus = Tables<"deelnames">["status"];
@@ -8,6 +12,8 @@ export type ParticipationStatus = Tables<"deelnames">["status"];
 export const REGISTERED_PARTICIPATION_STATUS: ParticipationStatus =
   "ingeschreven";
 export const CANCELLED_PARTICIPATION_STATUS: ParticipationStatus = "afgemeld";
+export const ACCEPTED_PARTICIPATION_STATUS: ParticipationStatus = "geaccepteerd";
+export const REJECTED_PARTICIPATION_STATUS: ParticipationStatus = "geweigerd";
 
 type CurrentParticipationRow = Pick<
   Tables<"deelnames">,
@@ -52,6 +58,16 @@ const ACTIVE_PARTICIPATION_STATUSES: ParticipationStatus[] = [
   "ingeschreven"
 ];
 
+const REACTIVATABLE_PARTICIPATION_STATUSES: ParticipationStatus[] = [
+  "afgemeld",
+  "voorgesteld",
+  "uitgenodigd",
+  "wachtlijst",
+  "geweigerd",
+  "geannuleerd",
+  "verlopen"
+];
+
 const BLOCKING_PARTICIPATION_STATUSES: ParticipationStatus[] = [
   "voorgesteld",
   "uitgenodigd",
@@ -71,11 +87,13 @@ export function isBlockingParticipationStatus(status: ParticipationStatus) {
 export async function registerForMoment({
   momentId,
   persoonId,
-  profielId
+  profielId,
+  targetParticipationStatus = REGISTERED_PARTICIPATION_STATUS
 }: {
   momentId: string;
   persoonId: string;
   profielId: string;
+  targetParticipationStatus?: ParticipationStatus;
 }): Promise<RegistrationResult> {
   const supabase = getSupabaseBrowserClient();
   const timestamp = new Date().toISOString();
@@ -85,31 +103,26 @@ export async function registerForMoment({
   );
 
   if (existingParticipation) {
-    if (existingParticipation.status === CANCELLED_PARTICIPATION_STATUS) {
-      const { data, error } = await supabase
-        .from("deelnames")
-        .update({
-          status: REGISTERED_PARTICIPATION_STATUS,
-          afgemeld_at: null,
-          status_updated_at: timestamp,
-          updated_at: timestamp
-        })
-        .eq("id", existingParticipation.id)
-        .eq("moment_id", momentId)
-        .eq("profiel_id", profielId)
-        .is("archived_at", null)
-        .select("id")
-        .maybeSingle();
+    if (isActiveParticipationStatus(existingParticipation.status)) {
+      return {
+        status: "already_registered",
+        deelnameStatus: existingParticipation.status
+      };
+    }
 
-      if (error) {
-        throw new Error(toParticipationActionMessage(error.message));
-      }
-
-      if (!data) {
-        throw new Error(
-          "Opnieuw aanmelden is niet gelukt. De bestaande deelname mag mogelijk niet door dit profiel worden aangepast."
-        );
-      }
+    if (
+      REACTIVATABLE_PARTICIPATION_STATUSES.includes(
+        existingParticipation.status
+      )
+    ) {
+      await setParticipationStatus({
+        momentId,
+        deelnameId: existingParticipation.id,
+        status: targetParticipationStatus,
+        actorProfileId: profielId,
+        actorPersonId: persoonId,
+        timestamp
+      });
 
       return { status: "reactivated" };
     }
@@ -123,11 +136,14 @@ export async function registerForMoment({
   const deelname: TablesInsert<"deelnames"> = {
     moment_id: momentId,
     profiel_id: profielId,
-    status: REGISTERED_PARTICIPATION_STATUS,
+    status: targetParticipationStatus,
     aangemeld_door_persoon_id: persoonId,
     aangemeld_vanuit_profiel_id: profielId,
     status_updated_at: timestamp,
-    geaccepteerd_at: timestamp
+    geaccepteerd_at:
+      targetParticipationStatus === ACCEPTED_PARTICIPATION_STATUS
+        ? timestamp
+        : null
   };
 
   const { data, error } = await supabase
@@ -149,6 +165,33 @@ export async function registerForMoment({
   return { status: "inserted" };
 }
 
+export async function updateParticipationForProposal({
+  momentId,
+  profielId,
+  status
+}: {
+  momentId: string;
+  profielId: string;
+  status: ParticipationStatus;
+}): Promise<boolean> {
+  const existingParticipation = await fetchCurrentParticipation(momentId, profielId);
+
+  if (!existingParticipation) {
+    return false;
+  }
+
+  await setParticipationStatus({
+    momentId,
+    deelnameId: existingParticipation.id,
+    status,
+    actorProfileId: profielId,
+    actorPersonId: null,
+    timestamp: new Date().toISOString()
+  });
+
+  return true;
+}
+
 export async function unregisterFromMoment({
   deelnameId,
   momentId,
@@ -158,7 +201,8 @@ export async function unregisterFromMoment({
   momentId: string;
   profielId: string;
 }): Promise<UnregisterResult> {
-  const supabase = getSupabaseBrowserClient() as unknown as MomentUnregisterRpcClient;
+  const supabase =
+    getSupabaseBrowserClient() as unknown as MomentUnregisterRpcClient;
   const { data, error } = await supabase
     .rpc("afmelden_moment_met_claims", {
       target_deelname_id: deelnameId,
@@ -182,6 +226,67 @@ export async function unregisterFromMoment({
     roleClaimsReleased: data.role_claims_released,
     taskClaimsReleased: data.task_claims_released
   };
+}
+
+async function setParticipationStatus({
+  momentId,
+  deelnameId,
+  status,
+  actorProfileId,
+  actorPersonId,
+  timestamp
+}: {
+  momentId: string;
+  deelnameId: string;
+  status: ParticipationStatus;
+  actorProfileId: string;
+  actorPersonId: string | null;
+  timestamp: string;
+}) {
+  const payload: TablesUpdate<"deelnames"> = {
+    status,
+    status_updated_at: timestamp,
+    updated_at: timestamp,
+    afgemeld_at: null,
+    geweigerd_at: null,
+    geaccepteerd_at: null,
+    aangemeld_door_persoon_id: actorPersonId,
+    aangemeld_vanuit_profiel_id: actorProfileId
+  };
+
+  if (status === ACCEPTED_PARTICIPATION_STATUS) {
+    payload.geaccepteerd_at = timestamp;
+  } else if (status === REJECTED_PARTICIPATION_STATUS) {
+    payload.geweigerd_at = timestamp;
+  } else if (status === CANCELLED_PARTICIPATION_STATUS) {
+    payload.afgemeld_at = timestamp;
+  }
+
+  const finalPayload =
+    actorPersonId === null
+      ? { ...payload, aangemeld_door_persoon_id: null }
+      : payload;
+
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("deelnames")
+    .update(finalPayload)
+    .eq("id", deelnameId)
+    .eq("moment_id", momentId)
+    .eq("profiel_id", actorProfileId)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(toParticipationActionMessage(error.message));
+  }
+
+  if (!data) {
+    throw new Error(
+      "De deelname kon niet worden bijgewerkt. De huidige sessie heeft mogelijk geen rechten op deze mutatie."
+    );
+  }
 }
 
 async function fetchCurrentParticipation(

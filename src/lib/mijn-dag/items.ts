@@ -43,7 +43,7 @@ type RolbezettingWithMomentrol = Pick<
 };
 
 export type MijnDagItemReason = {
-  type: "deelname" | "rolbezetting";
+  type: "deelname" | "rolbezetting" | "voorstel";
   label: string;
   status: string;
 };
@@ -63,7 +63,8 @@ export type MijnDagItem = {
 
 const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
   deelname: 1,
-  rolbezetting: 2
+  rolbezetting: 2,
+  voorstel: 3
 };
 
 export function getLocalDayRange(date: Date) {

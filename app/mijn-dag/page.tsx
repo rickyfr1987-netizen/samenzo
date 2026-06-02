@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
+  acceptVoorstel,
+  declineVoorstel
+} from "@/src/lib/voorstellen/actions";
+import {
+  fetchOpenMomentProposalsForProfile,
+  type VoorstelItem
+} from "@/src/lib/voorstellen/items";
+import {
   fetchMijnDagItems,
   getLocalDayRange,
   type MijnDagItem
@@ -13,10 +21,24 @@ import {
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
 
+type MijnDagProposalCardItem = MijnDagItem & {
+  proposal: VoorstelItem | null;
+};
+
 type MijnDagState =
   | { status: "loading" }
-  | { status: "ready"; context: CurrentSamzoContext; items: MijnDagItem[] }
+  | {
+      status: "ready";
+      context: CurrentSamzoContext;
+      items: MijnDagProposalCardItem[];
+    }
   | { status: "error"; message: string };
+
+type ActionState =
+  | { status: "idle"; message: string | null; voorstelId: string | null }
+  | { status: "running"; message: string; voorstelId: string | null }
+  | { status: "success"; message: string; voorstelId: string | null }
+  | { status: "error"; message: string; voorstelId: string | null };
 
 const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
   dateStyle: "medium"
@@ -27,7 +49,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
   timeStyle: "short"
 });
 
-function formatItemTime(item: MijnDagItem) {
+function formatItemTime(item: MijnDagProposalCardItem) {
   if (!item.startsAt) {
     return "Tijd nog niet bekend";
   }
@@ -51,6 +73,23 @@ function formatStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+function formatDateLabel(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+}
+
+function isDateForSelectedDay(startsAt: string | null, day: Date) {
+  if (!startsAt) {
+    return false;
+  }
+
+  const start = new Date(startsAt);
+  const { start: dayStart, end: dayEnd } = getLocalDayRange(day);
+
+  return start >= dayStart && start < dayEnd;
+}
+
 function toDateInputValue(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -72,44 +111,156 @@ function addDays(date: Date, days: number) {
   return nextDate;
 }
 
+function mergeMomentsWithProposals(
+  moments: MijnDagItem[],
+  proposals: VoorstelItem[],
+  selectedDate: Date
+) {
+  const proposalsByMoment = new Map<string, VoorstelItem[]>();
+
+  proposals
+    .filter(
+      (voorstel) =>
+        voorstel.linkedType === "moment" &&
+        voorstel.linkedMoment !== null &&
+        voorstel.status === "open" &&
+        isDateForSelectedDay(voorstel.linkedMoment.startsAt, selectedDate)
+    )
+    .forEach((voorstel) => {
+      const list = proposalsByMoment.get(voorstel.linkedId) ?? [];
+      proposalsByMoment.set(voorstel.linkedId, [...list, voorstel]);
+    });
+
+  const mergedByMoment = new Map<string, MijnDagProposalCardItem>();
+  const mergedItems: MijnDagProposalCardItem[] = [];
+
+  for (const moment of moments) {
+    const momentProposals = proposalsByMoment.get(moment.id) ?? [];
+    const activeProposal = momentProposals.find((proposal) => proposal.canRespond) ?? null;
+
+    const reasons = [...moment.reasons];
+
+    if (activeProposal) {
+      const hasReasonAlready = reasons.some(
+        (reason) => reason.type === "voorstel"
+      );
+
+      if (!hasReasonAlready) {
+        reasons.push({
+          type: "voorstel",
+          label: "Voorstel",
+          status: "voorgesteld"
+        });
+      }
+    }
+
+    mergedByMoment.set(moment.id, {
+      ...moment,
+      proposal: activeProposal,
+      reasons
+    });
+
+    mergedItems.push({
+      ...moment,
+      proposal: activeProposal,
+      reasons
+    });
+  }
+
+  for (const list of proposalsByMoment.values()) {
+    const proposal = list.find((item) => item.canRespond) ?? list[0];
+
+    if (!proposal?.linkedMoment) {
+      continue;
+    }
+
+    const existing = mergedByMoment.get(proposal.linkedMoment.id);
+
+    if (!existing) {
+      mergedItems.push({
+        id: proposal.linkedMoment.id,
+        title: proposal.linkedMoment.title,
+        description: proposal.linkedMoment.description,
+        startsAt: proposal.linkedMoment.startsAt,
+        endsAt: proposal.linkedMoment.endsAt,
+        isAllDay: proposal.linkedMoment.isAllDay,
+        location: proposal.linkedMoment.location,
+        status: proposal.linkedMoment.status,
+        categoryName: proposal.linkedMoment.categoryName,
+        reasons: [
+          {
+            type: "voorstel",
+            label: "Voorstel",
+            status: "voorgesteld"
+          }
+        ],
+        proposal
+      });
+    }
+  }
+
+  return mergedItems.sort((first, second) => {
+    const firstTime = first.startsAt ? new Date(first.startsAt).getTime() : 0;
+    const secondTime = second.startsAt ? new Date(second.startsAt).getTime() : 0;
+
+    return firstTime - secondTime;
+  });
+}
+
 export default function MijnDagPage() {
   const [mijnDag, setMijnDag] = useState<MijnDagState>({
     status: "loading"
   });
+  const [actionState, setActionState] = useState<ActionState>({
+    status: "idle",
+    message: null,
+    voorstelId: null
+  });
   const [today] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadMijnDag() {
-      try {
-        const context = await fetchCurrentSamzoContext();
-        const currentProfiel = context.currentProfiel;
-        const items = currentProfiel
-          ? await fetchMijnDagItems(currentProfiel.id, selectedDate)
-          : [];
-
-        if (isMounted) {
-          setMijnDag({ status: "ready", context, items });
-        }
-      } catch (error: unknown) {
-        if (isMounted) {
-          setMijnDag({
-            status: "error",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Onbekende fout tijdens het laden van Mijn dag."
-          });
-        }
+  async function loadMijnDag(date: Date) {
+    try {
+      const context = await fetchCurrentSamzoContext();
+      const currentProfiel = context.currentProfiel;
+      if (!currentProfiel) {
+        setMijnDag({ status: "ready", context, items: [] });
+        return;
       }
+
+      const [items, proposals] = await Promise.all([
+        fetchMijnDagItems(currentProfiel.id, date),
+        fetchOpenMomentProposalsForProfile(currentProfiel.id)
+      ]);
+      const merged = mergeMomentsWithProposals(items, proposals, date);
+
+      setMijnDag({ status: "ready", context, items: merged });
+    } catch (error: unknown) {
+      setMijnDag({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Onbekende fout tijdens het laden van Mijn dag."
+      });
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (cancelled) {
+        return;
+      }
+
+      await loadMijnDag(selectedDate);
     }
 
-    loadMijnDag();
+    void load();
 
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
   }, [selectedDate]);
 
@@ -117,7 +268,74 @@ export default function MijnDagPage() {
   const { start } = getLocalDayRange(selectedDate);
   const selectedDateValue = toDateInputValue(selectedDate);
 
+  async function handleProposalDecision(
+    actie: "accept" | "reject",
+    voorstel: VoorstelItem
+  ) {
+    if (
+      mijnDag.status !== "ready" ||
+      !mijnDag.context.authUser ||
+      !mijnDag.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Je moet ingelogd zijn met een actief profiel.",
+        voorstelId: voorstel.id
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message:
+        actie === "accept"
+          ? "Voorstel accepteren..."
+          : "Voorstel afwijzen...",
+      voorstelId: voorstel.id
+    });
+
+    try {
+      if (actie === "accept") {
+        if (!mijnDag.context.persoon) {
+          throw new Error();
+        }
+
+        await acceptVoorstel({
+          voorstelId: voorstel.id,
+          profielId: mijnDag.context.currentProfiel.id,
+          persoonId: mijnDag.context.persoon.id
+        });
+      } else {
+        await declineVoorstel({
+          voorstelId: voorstel.id,
+          profielId: mijnDag.context.currentProfiel.id,
+          persoonId: null
+        });
+      }
+
+      await loadMijnDag(selectedDate);
+      setActionState({
+        status: "success",
+        message:
+          actie === "accept"
+            ? "Het voorstel is geaccepteerd."
+            : "Het voorstel is afgewezen.",
+        voorstelId: voorstel.id
+      });
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? "Het voorstel kon niet worden verwerkt. Probeer opnieuw."
+            : "Het voorstel kon niet worden verwerkt. Probeer opnieuw.",
+        voorstelId: voorstel.id
+      });
+    }
+  }
+
   function updateSelectedDate(date: Date) {
+    setActionState({ status: "idle", message: null, voorstelId: null });
     setMijnDag({ status: "loading" });
     setSelectedDate(date);
   }
@@ -137,7 +355,7 @@ export default function MijnDagPage() {
         <h1>Mijn dag</h1>
         <p>
           Persoonlijke momenten voor de gekozen datum op basis van je gekoppelde
-          profiel, deelnames en actieve rolbezettingen.
+          profiel, deelnames en open voorstellen.
         </p>
       </div>
 
@@ -223,8 +441,8 @@ export default function MijnDagPage() {
         <div className="mijn-dag-state">
           <h2>Niets zichtbaar voor deze datum</h2>
           <p>
-            Er zijn op deze datum geen deelnames of actieve rolbezettingen
-            zichtbaar voor dit profiel.
+            Er zijn op deze datum geen deelnames of actieve voorstellen zichtbaar
+            voor dit profiel.
           </p>
         </div>
       ) : null}
@@ -232,18 +450,16 @@ export default function MijnDagPage() {
       {mijnDag.status === "ready" && mijnDag.items.length > 0 ? (
         <div className="mijn-dag-grid">
           {mijnDag.items.map((item) => (
-            <Link
-              className="mijn-dag-card-link"
-              href={`/planning/${item.id}`}
-              key={item.id}
-            >
-              <article className="mijn-dag-card">
+            <article className="mijn-dag-card" key={item.id}>
+              <Link className="mijn-dag-card-link" href={`/planning/${item.id}`}>
                 <div className="mijn-dag-card__meta">
                   <span>{item.categoryName ?? "Geen categorie"}</span>
                   <span>{formatStatus(item.status)}</span>
                 </div>
                 <h2>{item.title}</h2>
-                <p className="mijn-dag-card__time">{formatItemTime(item)}</p>
+                <p className="mijn-dag-card__time">
+                  {formatItemTime(item)}
+                </p>
                 {item.location ? (
                   <p className="mijn-dag-card__location">{item.location}</p>
                 ) : null}
@@ -251,14 +467,59 @@ export default function MijnDagPage() {
                 <div className="mijn-dag-card__reasons">
                   {item.reasons.map((reason) => (
                     <span key={`${item.id}-${reason.type}-${reason.label}`}>
-                      {reason.label}: {formatStatus(reason.status)}
+                      {reason.label}
+                      {reason.type === "voorstel"
+                        ? ": voorgesteld"
+                        : `: ${formatStatus(reason.status)}`}
                     </span>
                   ))}
                 </div>
-              </article>
-            </Link>
+              </Link>
+
+              {item.proposal && item.proposal.canRespond ? (
+                <div className="mijn-dag-proposal-actions">
+                  <button
+                    onClick={() =>
+                      void handleProposalDecision("accept", item.proposal!)
+                    }
+                    disabled={
+                      actionState.status === "running" &&
+                      actionState.voorstelId === item.proposal.id
+                    }
+                    type="button"
+                  >
+                    Accepteren
+                  </button>
+                  <button
+                    onClick={() =>
+                      void handleProposalDecision("reject", item.proposal!)
+                    }
+                    disabled={
+                      actionState.status === "running" &&
+                      actionState.voorstelId === item.proposal.id
+                    }
+                    type="button"
+                  >
+                    Afwijzen
+                  </button>
+                </div>
+              ) : null}
+            </article>
           ))}
         </div>
+      ) : null}
+
+      {actionState.message ? (
+        <p
+          className={
+            actionState.status === "error"
+              ? "mijn-dag-state mijn-dag-state--error"
+              : "mijn-dag-state"
+          }
+          role="status"
+        >
+          {actionState.message}
+        </p>
       ) : null}
     </section>
   );
