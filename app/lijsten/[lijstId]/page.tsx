@@ -13,11 +13,13 @@ import {
 import {
   canCompleteTask,
   canClaimTask,
+  canReopenTask,
   claimTask,
   completeTask,
   COMPLETED_TASK_ASSIGNEE_STATUS,
   getTaskClaimState,
   isCompletedTaskStatus,
+  reopenTask,
   releaseTask,
   type TaskClaimResult
 } from "@/src/lib/lijsten/task-actions";
@@ -268,6 +270,44 @@ export default function LijstDetailPage() {
     }
   }
 
+  async function handleReopenTask(
+    task: LijstTask,
+    assignee: LijstTaskAssignee
+  ) {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Taak heropenen kan alleen met een gekoppeld actief profiel."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Taak wordt heropend..."
+    });
+
+    try {
+      await reopenTask({
+        taakuitvoerderId: assignee.id,
+        taakId: task.id,
+        profielId: detailState.context.currentProfiel.id
+      });
+      await refreshList(`Je hebt "${task.title}" heropend.`);
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Taak heropenen is niet gelukt."
+      });
+    }
+  }
+
   const context =
     detailState.status === "ready" ? detailState.context : null;
   const list = detailState.status === "ready" ? detailState.list : null;
@@ -389,6 +429,9 @@ export default function LijstDetailPage() {
                     (assignee) =>
                       assignee.status === COMPLETED_TASK_ASSIGNEE_STATUS
                   );
+                  const currentCompletedAssignee = completedAssignees.find(
+                    (assignee) => assignee.profileId === currentProfielId
+                  );
                   const taskIsCompleted = isCompletedTaskStatus(task.status);
                   const taskCanClaim =
                     canClaimTask(task, claimState, hasCurrentProfile) &&
@@ -400,6 +443,12 @@ export default function LijstDetailPage() {
                     claimState.status === "claimed_by_current" &&
                     !taskIsCompleted &&
                     actionState.status !== "running";
+                  const taskCanReopen =
+                    canReopenTask({
+                      currentAssignee: currentCompletedAssignee ?? null,
+                      hasCurrentProfile,
+                      task
+                    }) && actionState.status !== "running";
 
                   return (
                     <li key={task.id}>
@@ -425,7 +474,8 @@ export default function LijstDetailPage() {
                               </span>
                             ))
                           : null}
-                        {claimState.status === "not_claimed" ? (
+                        {claimState.status === "not_claimed" &&
+                        !taskIsCompleted ? (
                           <span>Niet geclaimd</span>
                         ) : null}
                         {completedAssignees.length > 0
@@ -436,7 +486,8 @@ export default function LijstDetailPage() {
                             ))
                           : null}
                         {claimState.status === "not_claimed" &&
-                        claimState.currentAssignee ? (
+                        claimState.currentAssignee &&
+                        !taskIsCompleted ? (
                           <span>
                             Jouw eerdere status:{" "}
                             {formatStatus(claimState.currentAssignee.status)}
@@ -487,6 +538,16 @@ export default function LijstDetailPage() {
                             type="button"
                           >
                             Taak vrijgeven
+                          </button>
+                        ) : null}
+                        {taskCanReopen && currentCompletedAssignee ? (
+                          <button
+                            onClick={() =>
+                              handleReopenTask(task, currentCompletedAssignee)
+                            }
+                            type="button"
+                          >
+                            Taak heropenen
                           </button>
                         ) : null}
                       </div>

@@ -32,6 +32,11 @@ type CompleteTaskRpcResult = {
   taakuitvoerder_afgerond: boolean;
 };
 
+type ReopenTaskRpcResult = {
+  taak_heropend: boolean;
+  taakuitvoerder_heropend: boolean;
+};
+
 type TaskCompletionRpcClient = {
   rpc(
     fn: "taak_afvinken",
@@ -43,6 +48,19 @@ type TaskCompletionRpcClient = {
   ): {
     maybeSingle(): Promise<{
       data: CompleteTaskRpcResult | null;
+      error: PostgrestError | null;
+    }>;
+  };
+  rpc(
+    fn: "taak_heropenen",
+    args: {
+      target_profiel_id: string;
+      target_taak_id: string;
+      target_taakuitvoerder_id: string;
+    }
+  ): {
+    maybeSingle(): Promise<{
+      data: ReopenTaskRpcResult | null;
       error: PostgrestError | null;
     }>;
   };
@@ -133,6 +151,22 @@ export function canCompleteTask(
     hasCurrentProfile &&
     claimState.status === "claimed_by_current" &&
     isClaimableTaskStatus(task.status)
+  );
+}
+
+export function canReopenTask({
+  currentAssignee,
+  hasCurrentProfile,
+  task
+}: {
+  currentAssignee: LijstTaskAssignee | null;
+  hasCurrentProfile: boolean;
+  task: LijstTask;
+}) {
+  return (
+    hasCurrentProfile &&
+    isCompletedTaskStatus(task.status) &&
+    currentAssignee?.status === COMPLETED_TASK_ASSIGNEE_STATUS
   );
 }
 
@@ -293,6 +327,37 @@ export async function completeTask({
   if (!data?.taak_afgerond || !data.taakuitvoerder_afgerond) {
     throw new Error(
       "Taak afvinken is niet gelukt. Deze taak mag mogelijk niet door dit profiel worden afgerond."
+    );
+  }
+}
+
+export async function reopenTask({
+  taakuitvoerderId,
+  taakId,
+  profielId
+}: {
+  taakuitvoerderId: string;
+  taakId: string;
+  profielId: string;
+}) {
+  const supabase =
+    getSupabaseBrowserClient() as unknown as TaskCompletionRpcClient;
+
+  const { data, error } = await supabase
+    .rpc("taak_heropenen", {
+      target_profiel_id: profielId,
+      target_taak_id: taakId,
+      target_taakuitvoerder_id: taakuitvoerderId
+    })
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(toTaskActionMessage(error.message));
+  }
+
+  if (!data?.taak_heropend || !data.taakuitvoerder_heropend) {
+    throw new Error(
+      "Taak heropenen is niet gelukt. Deze taak mag mogelijk niet door dit profiel worden heropend."
     );
   }
 }
