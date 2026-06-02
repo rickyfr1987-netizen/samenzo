@@ -102,11 +102,76 @@ a {
 }
 
 .planning-page__header p:not(.planning-page__eyebrow),
+.planning-dev-panel p,
 .planning-state p,
 .planning-card p {
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.6;
+  margin: 0;
+}
+
+.planning-dev-panel {
+  background: #fffaf0;
+  border: 1px solid #e4d8bd;
+  border-radius: 14px;
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 20px;
+}
+
+.planning-dev-panel h2 {
+  font-size: 1.15rem;
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+.planning-dev-panel__label {
+  color: #8a6f2f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.planning-dev-panel__field {
+  display: grid;
+  gap: 8px;
+}
+
+.planning-dev-panel__field span {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.planning-dev-panel__field select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--foreground);
+  font: inherit;
+  max-width: 360px;
+  padding: 10px 12px;
+}
+
+.planning-dev-panel__facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.planning-dev-panel__facts div {
+  display: grid;
+  gap: 4px;
+}
+
+.planning-dev-panel__facts dt {
+  color: #8a6f2f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.planning-dev-panel__facts dd {
   margin: 0;
 }
 

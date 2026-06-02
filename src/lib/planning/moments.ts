@@ -1,6 +1,6 @@
-import { getSupabaseBrowserClient } from "@/src/lib/supabase/client"
+import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 
-import type { Tables } from "@/src/lib/database.types"
+import type { Tables } from "@/src/lib/database.types";
 
 type MomentRow = Pick<
   Tables<"momenten">,
@@ -12,26 +12,45 @@ type MomentRow = Pick<
   | "hele_dag"
   | "locatie"
   | "status"
->
+>;
 
 type MomentWithCategory = MomentRow & {
-  categorieen: Pick<Tables<"categorieen">, "naam"> | null
-}
+  categorieen: Pick<Tables<"categorieen">, "naam"> | null;
+};
 
 export type PlanningMoment = {
-  id: string
-  title: string
-  description: string | null
-  startsAt: string | null
-  endsAt: string | null
-  isAllDay: boolean
-  location: string | null
-  status: Tables<"momenten">["status"]
-  categoryName: string | null
+  id: string;
+  title: string;
+  description: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  isAllDay: boolean;
+  location: string | null;
+  status: Tables<"momenten">["status"];
+  categoryName: string | null;
+};
+
+export type PlanningAuthContext = {
+  isAuthenticated: boolean;
+  authUserId: string | null;
+};
+
+export async function fetchPlanningAuthContext(): Promise<PlanningAuthContext> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    isAuthenticated: Boolean(data.session),
+    authUserId: data.session?.user.id ?? null
+  };
 }
 
 export async function fetchPlanningMoments(): Promise<PlanningMoment[]> {
-  const supabase = getSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient();
 
   const { data, error } = await supabase
     .from("momenten")
@@ -50,10 +69,10 @@ export async function fetchPlanningMoments(): Promise<PlanningMoment[]> {
         )
       `,
     )
-    .order("start_at", { ascending: true })
+    .order("start_at", { ascending: true });
 
   if (error) {
-    throw new Error(error.message)
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as MomentWithCategory[]).map((moment) => ({
@@ -65,6 +84,6 @@ export async function fetchPlanningMoments(): Promise<PlanningMoment[]> {
     isAllDay: moment.hele_dag,
     location: moment.locatie,
     status: moment.status,
-    categoryName: moment.categorieen?.naam ?? null,
-  }))
+    categoryName: moment.categorieen?.naam ?? null
+  }));
 }
