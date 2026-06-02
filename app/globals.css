@@ -52,3 +52,33 @@ a {
   line-height: 1.6;
   margin: 0;
 }
+
+.healthcheck-list {
+  border-top: 1px solid var(--border);
+  margin: 24px 0 0;
+  padding: 0;
+}
+
+.healthcheck-list div {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(160px, 0.35fr) 1fr;
+  padding: 14px 0;
+}
+
+.healthcheck-list dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.healthcheck-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .healthcheck-list div {
+    grid-template-columns: 1fr;
+  }
+}

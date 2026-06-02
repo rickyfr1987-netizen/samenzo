@@ -12,6 +12,8 @@ export type SupabaseHealthResult = {
   } | null
 }
 
+export const SUPABASE_HEALTH_QUERY = 'categorieen.select("id").limit(1)'
+
 let browserClient: SupabaseBrowserClient | undefined
 
 export function getSupabaseBrowserClient(): SupabaseBrowserClient {
