@@ -97,6 +97,8 @@ const ROLE_BLOCKING_PARTICIPATION_STATUSES: MomentDetailParticipation["status"][
 
 const ROLE_BLOCKING_CLAIM_MESSAGE =
   "Je kunt deze rol nog niet claimen omdat je deelname nog niet actief is.";
+const ROLE_REQUIRES_ACTIVE_PARTICIPATION_MESSAGE =
+  "Je kunt deze rol claimen zodra je actief deelneemt aan dit moment.";
 
 function isRoleBlockingParticipationStatus(
   status: MomentDetailParticipation["status"]
@@ -153,7 +155,11 @@ function findCurrentParticipation(
 }
 
 function isRoleOpenForClaim(role: MomentDetailRole) {
-  return role.status === "open" || role.status === "incompleet";
+  return (
+    role.status === "open" ||
+    role.status === "incompleet" ||
+    role.status === "gevuld"
+  );
 }
 
 function getActiveRoleOccupancies(role: MomentDetailRole) {
@@ -318,12 +324,31 @@ export default function MomentDetailPage() {
     });
 
     try {
-      await unregisterFromMoment({
+      const result = await unregisterFromMoment({
         deelnameId: participationId,
         momentId,
         profielId: detailState.context.currentProfiel.id
       });
-      await refreshMomentDetail("Je bent afgemeld voor dit moment.");
+      const releasedParts = [
+        result.roleClaimsReleased > 0
+          ? `${result.roleClaimsReleased} rol${
+              result.roleClaimsReleased === 1 ? "" : "len"
+            }`
+          : null,
+        result.taskClaimsReleased > 0
+          ? `${result.taskClaimsReleased} taakclaim${
+              result.taskClaimsReleased === 1 ? "" : "s"
+            }`
+          : null
+      ].filter(Boolean);
+
+      await refreshMomentDetail(
+        releasedParts.length > 0
+          ? `Je bent afgemeld. Ook je ${releasedParts.join(
+              " en "
+            )} voor dit moment zijn vrijgegeven.`
+          : "Je bent afgemeld voor dit moment."
+      );
     } catch (error: unknown) {
       setActionState({
         status: "error",
@@ -435,6 +460,9 @@ export default function MomentDetailPage() {
     : false;
   const hasRoleBlockingParticipation = currentParticipation
     ? isRoleBlockingParticipationStatus(currentParticipation.status)
+    : false;
+  const hasActiveParticipation = currentParticipation
+    ? isActiveParticipationStatus(currentParticipation.status)
     : false;
   const canRegister =
     detailState.status === "ready" &&
@@ -774,12 +802,17 @@ export default function MomentDetailPage() {
                     const roleClaimBlockedByParticipation =
                       hasRoleBlockingParticipation &&
                       currentRoleOccupancy?.status !== "actief";
+                    const roleClaimNeedsActiveParticipation =
+                      !hasActiveParticipation &&
+                      !hasRoleBlockingParticipation &&
+                      currentRoleOccupancy?.status !== "actief";
                     const canClaimRole =
                       detailState.context.persoon &&
                       currentProfiel &&
                       isRoleOpenForClaim(role) &&
                       roleHasSpace &&
                       currentRoleOccupancy?.status !== "actief" &&
+                      hasActiveParticipation &&
                       !hasRoleBlockingParticipation &&
                       actionState.status !== "running";
 
@@ -820,6 +853,12 @@ export default function MomentDetailPage() {
                         {roleClaimBlockedByParticipation ? (
                           <p className="moment-detail-role-note">
                             {ROLE_BLOCKING_CLAIM_MESSAGE}
+                          </p>
+                        ) : null}
+
+                        {roleClaimNeedsActiveParticipation ? (
+                          <p className="moment-detail-role-note">
+                            {ROLE_REQUIRES_ACTIVE_PARTICIPATION_MESSAGE}
                           </p>
                         ) : null}
 

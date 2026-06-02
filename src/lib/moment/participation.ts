@@ -1,6 +1,7 @@
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 
 import type { Tables, TablesInsert } from "@/src/lib/database.types";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 export type ParticipationStatus = Tables<"deelnames">["status"];
 
@@ -17,6 +18,34 @@ export type RegistrationResult =
   | { status: "inserted" }
   | { status: "reactivated" }
   | { status: "already_registered"; deelnameStatus: ParticipationStatus };
+
+export type UnregisterResult = {
+  status: "unregistered";
+  roleClaimsReleased: number;
+  taskClaimsReleased: number;
+};
+
+type UnregisterRpcResult = {
+  deelname_released: boolean;
+  role_claims_released: number;
+  task_claims_released: number;
+};
+
+type MomentUnregisterRpcClient = {
+  rpc(
+    fn: "afmelden_moment_met_claims",
+    args: {
+      target_deelname_id: string;
+      target_moment_id: string;
+      target_profiel_id: string;
+    }
+  ): {
+    maybeSingle(): Promise<{
+      data: UnregisterRpcResult | null;
+      error: PostgrestError | null;
+    }>;
+  };
+};
 
 const ACTIVE_PARTICIPATION_STATUSES: ParticipationStatus[] = [
   "geaccepteerd",
@@ -128,34 +157,31 @@ export async function unregisterFromMoment({
   deelnameId: string;
   momentId: string;
   profielId: string;
-}) {
-  const supabase = getSupabaseBrowserClient();
-  const timestamp = new Date().toISOString();
-
+}): Promise<UnregisterResult> {
+  const supabase = getSupabaseBrowserClient() as unknown as MomentUnregisterRpcClient;
   const { data, error } = await supabase
-    .from("deelnames")
-    .update({
-      status: CANCELLED_PARTICIPATION_STATUS,
-      afgemeld_at: timestamp,
-      status_updated_at: timestamp,
-      updated_at: timestamp
+    .rpc("afmelden_moment_met_claims", {
+      target_deelname_id: deelnameId,
+      target_moment_id: momentId,
+      target_profiel_id: profielId
     })
-    .eq("id", deelnameId)
-    .eq("moment_id", momentId)
-    .eq("profiel_id", profielId)
-    .is("archived_at", null)
-    .select("id")
     .maybeSingle();
 
   if (error) {
     throw new Error(toParticipationActionMessage(error.message));
   }
 
-  if (!data) {
+  if (!data?.deelname_released) {
     throw new Error(
       "Afmelden is nog niet toegestaan voor deze sessie. De huidige RLS-policies laten geen eigen deelname-update door."
     );
   }
+
+  return {
+    status: "unregistered",
+    roleClaimsReleased: data.role_claims_released,
+    taskClaimsReleased: data.task_claims_released
+  };
 }
 
 async function fetchCurrentParticipation(

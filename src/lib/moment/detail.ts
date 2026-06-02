@@ -56,6 +56,9 @@ type MomentRolRow = Pick<
     | null;
 };
 
+const ACTIVE_ROLE_OCCUPANCY_STATUS: Tables<"rolbezettingen">["status"] =
+  "actief";
+
 export type MomentDetail = {
   id: string;
   title: string;
@@ -248,23 +251,34 @@ export async function fetchMomentDetail(
         createdAt: participation.created_at
       })
     ),
-    roles: ((rolesResult.data ?? []) as MomentRolRow[]).map((role) => ({
-      id: role.id,
-      title: role.titel ?? `Rol: ${role.roltype}`,
-      description: role.omschrijving,
-      roleType: role.roltype,
-      status: role.status,
-      minimumCount: role.minimum_aantal,
-      maximumCount: role.maximum_aantal,
-      occupancies: (role.rolbezettingen ?? []).map((occupancy) => ({
-        id: occupancy.id,
-        profileId: occupancy.profiel_id,
-        profileName: occupancy.profielen?.weergavenaam ?? "Onbekend profiel",
-        profileStatus: occupancy.profielen?.status ?? null,
-        status: occupancy.status,
-        claimedAt: occupancy.geclaimd_at
-      }))
-    }))
+    roles: ((rolesResult.data ?? []) as MomentRolRow[]).map((role) => {
+      const activeOccupancies = (role.rolbezettingen ?? []).filter(
+        (occupancy) => occupancy.status === ACTIVE_ROLE_OCCUPANCY_STATUS
+      );
+
+      return {
+        id: role.id,
+        title: role.titel ?? `Rol: ${role.roltype}`,
+        description: role.omschrijving,
+        roleType: role.roltype,
+        status: deriveRoleStatus({
+          storedStatus: role.status,
+          activeOccupancyCount: activeOccupancies.length,
+          minimumCount: role.minimum_aantal,
+          maximumCount: role.maximum_aantal
+        }),
+        minimumCount: role.minimum_aantal,
+        maximumCount: role.maximum_aantal,
+        occupancies: activeOccupancies.map((occupancy) => ({
+          id: occupancy.id,
+          profileId: occupancy.profiel_id,
+          profileName: occupancy.profielen?.weergavenaam ?? "Onbekend profiel",
+          profileStatus: occupancy.profielen?.status ?? null,
+          status: occupancy.status,
+          claimedAt: occupancy.geclaimd_at
+        }))
+      };
+    })
   };
 }
 
@@ -282,4 +296,34 @@ function mapMoment(moment: MomentDetailRow): MomentDetail {
     registrationOpen: moment.inschrijving_open,
     categoryName: moment.categorieen?.naam ?? null
   };
+}
+
+function deriveRoleStatus({
+  storedStatus,
+  activeOccupancyCount,
+  minimumCount,
+  maximumCount
+}: {
+  storedStatus: Tables<"momentrollen">["status"];
+  activeOccupancyCount: number;
+  minimumCount: number;
+  maximumCount: number | null;
+}): Tables<"momentrollen">["status"] {
+  if (storedStatus === "geannuleerd" || storedStatus === "gearchiveerd") {
+    return storedStatus;
+  }
+
+  if (maximumCount !== null && activeOccupancyCount >= maximumCount) {
+    return "gevuld";
+  }
+
+  if (activeOccupancyCount === 0) {
+    return "open";
+  }
+
+  if (activeOccupancyCount < minimumCount) {
+    return "incompleet";
+  }
+
+  return "incompleet";
 }
