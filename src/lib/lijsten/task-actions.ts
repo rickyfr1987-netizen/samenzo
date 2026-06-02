@@ -2,12 +2,15 @@ import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 
 import type { Tables, TablesInsert } from "@/src/lib/database.types";
 import type { LijstTask, LijstTaskAssignee } from "@/src/lib/lijsten/items";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 export type TaskAssigneeStatus = Tables<"taakuitvoerders">["status"];
 export type TaskStatus = Tables<"taken">["status"];
 
 export const CLAIMED_TASK_ASSIGNEE_STATUS: TaskAssigneeStatus = "actief";
 export const RELEASED_TASK_ASSIGNEE_STATUS: TaskAssigneeStatus = "vervallen";
+export const COMPLETED_TASK_STATUS: TaskStatus = "afgerond";
+export const COMPLETED_TASK_ASSIGNEE_STATUS: TaskAssigneeStatus = "afgerond";
 
 const RECLAIMABLE_TASK_ASSIGNEE_STATUSES: TaskAssigneeStatus[] = [
   RELEASED_TASK_ASSIGNEE_STATUS
@@ -23,6 +26,27 @@ type CurrentTaskAssigneeRow = Pick<
   Tables<"taakuitvoerders">,
   "id" | "status"
 >;
+
+type CompleteTaskRpcResult = {
+  taak_afgerond: boolean;
+  taakuitvoerder_afgerond: boolean;
+};
+
+type TaskCompletionRpcClient = {
+  rpc(
+    fn: "taak_afvinken",
+    args: {
+      target_profiel_id: string;
+      target_taak_id: string;
+      target_taakuitvoerder_id: string;
+    }
+  ): {
+    maybeSingle(): Promise<{
+      data: CompleteTaskRpcResult | null;
+      error: PostgrestError | null;
+    }>;
+  };
+};
 
 export type TaskClaimResult =
   | { status: "inserted" }
@@ -100,8 +124,24 @@ export function canClaimTask(
   );
 }
 
+export function canCompleteTask(
+  task: LijstTask,
+  claimState: TaskClaimState,
+  hasCurrentProfile: boolean
+) {
+  return (
+    hasCurrentProfile &&
+    claimState.status === "claimed_by_current" &&
+    isClaimableTaskStatus(task.status)
+  );
+}
+
 export function isClaimableTaskStatus(status: TaskStatus) {
   return CLAIMABLE_TASK_STATUSES.includes(status);
+}
+
+export function isCompletedTaskStatus(status: TaskStatus) {
+  return status === COMPLETED_TASK_STATUS;
 }
 
 export async function claimTask({
@@ -222,6 +262,37 @@ export async function releaseTask({
   if (!data) {
     throw new Error(
       "Taak vrijgeven is niet gelukt. Deze taakuitvoerder mag mogelijk niet door dit profiel worden aangepast."
+    );
+  }
+}
+
+export async function completeTask({
+  taakuitvoerderId,
+  taakId,
+  profielId
+}: {
+  taakuitvoerderId: string;
+  taakId: string;
+  profielId: string;
+}) {
+  const supabase =
+    getSupabaseBrowserClient() as unknown as TaskCompletionRpcClient;
+
+  const { data, error } = await supabase
+    .rpc("taak_afvinken", {
+      target_profiel_id: profielId,
+      target_taak_id: taakId,
+      target_taakuitvoerder_id: taakuitvoerderId
+    })
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(toTaskActionMessage(error.message));
+  }
+
+  if (!data?.taak_afgerond || !data.taakuitvoerder_afgerond) {
+    throw new Error(
+      "Taak afvinken is niet gelukt. Deze taak mag mogelijk niet door dit profiel worden afgerond."
     );
   }
 }

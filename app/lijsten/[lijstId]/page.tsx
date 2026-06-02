@@ -11,9 +11,13 @@ import {
   type LijstTaskAssignee
 } from "@/src/lib/lijsten/items";
 import {
+  canCompleteTask,
   canClaimTask,
   claimTask,
+  completeTask,
+  COMPLETED_TASK_ASSIGNEE_STATUS,
   getTaskClaimState,
+  isCompletedTaskStatus,
   releaseTask,
   type TaskClaimResult
 } from "@/src/lib/lijsten/task-actions";
@@ -226,6 +230,44 @@ export default function LijstDetailPage() {
     }
   }
 
+  async function handleCompleteTask(
+    task: LijstTask,
+    assignee: LijstTaskAssignee
+  ) {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Taak afvinken kan alleen met een gekoppeld actief profiel."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Taak wordt afgevinkt..."
+    });
+
+    try {
+      await completeTask({
+        taakuitvoerderId: assignee.id,
+        taakId: task.id,
+        profielId: detailState.context.currentProfiel.id
+      });
+      await refreshList(`Je hebt "${task.title}" afgevinkt.`);
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Taak afvinken is niet gelukt."
+      });
+    }
+  }
+
   const context =
     detailState.status === "ready" ? detailState.context : null;
   const list = detailState.status === "ready" ? detailState.list : null;
@@ -343,8 +385,20 @@ export default function LijstDetailPage() {
               <ul className="lijsten-task-list lijsten-task-list--detail">
                 {list.tasks.map((task) => {
                   const claimState = getTaskClaimState(task, currentProfielId);
+                  const completedAssignees = task.assignees.filter(
+                    (assignee) =>
+                      assignee.status === COMPLETED_TASK_ASSIGNEE_STATUS
+                  );
+                  const taskIsCompleted = isCompletedTaskStatus(task.status);
                   const taskCanClaim =
                     canClaimTask(task, claimState, hasCurrentProfile) &&
+                    actionState.status !== "running";
+                  const taskCanComplete =
+                    canCompleteTask(task, claimState, hasCurrentProfile) &&
+                    actionState.status !== "running";
+                  const taskCanRelease =
+                    claimState.status === "claimed_by_current" &&
+                    !taskIsCompleted &&
                     actionState.status !== "running";
 
                   return (
@@ -360,6 +414,7 @@ export default function LijstDetailPage() {
                       <h3>{task.title}</h3>
                       {task.description ? <p>{task.description}</p> : null}
                       <div className="lijsten-task-list__claim-state">
+                        {taskIsCompleted ? <span>Afgevinkt</span> : null}
                         {claimState.status === "claimed_by_current" ? (
                           <span>Jij voert deze taak uit</span>
                         ) : null}
@@ -373,6 +428,13 @@ export default function LijstDetailPage() {
                         {claimState.status === "not_claimed" ? (
                           <span>Niet geclaimd</span>
                         ) : null}
+                        {completedAssignees.length > 0
+                          ? completedAssignees.map((assignee) => (
+                              <span key={assignee.id}>
+                                Afgevinkt door {assignee.profileName}
+                              </span>
+                            ))
+                          : null}
                         {claimState.status === "not_claimed" &&
                         claimState.currentAssignee ? (
                           <span>
@@ -400,8 +462,21 @@ export default function LijstDetailPage() {
                             Taak claimen
                           </button>
                         ) : null}
-                        {claimState.status === "claimed_by_current" &&
-                        actionState.status !== "running" ? (
+                        {taskCanComplete &&
+                        claimState.status === "claimed_by_current" ? (
+                          <button
+                            onClick={() =>
+                              handleCompleteTask(
+                                task,
+                                claimState.currentAssignee
+                              )
+                            }
+                            type="button"
+                          >
+                            Taak afvinken
+                          </button>
+                        ) : null}
+                        {taskCanRelease ? (
                           <button
                             onClick={() =>
                               handleReleaseTask(
