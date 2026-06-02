@@ -1666,6 +1666,221 @@ a {
 .doelen-task-list small {
   color: var(--muted);
 }
+
+.leden-page {
+  margin: 0 auto;
+  max-width: 980px;
+  padding: 32px 0;
+}
+
+.leden-page__header {
+  max-width: 760px;
+}
+
+.leden-page__eyebrow {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 8px;
+}
+
+.leden-page h1 {
+  font-size: 2rem;
+  line-height: 1.2;
+  margin: 0 0 12px;
+}
+
+.leden-page p,
+.leden-state p,
+.leden-card p {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.leden-context {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 24px;
+}
+
+.leden-context div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.leden-context span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.leden-context strong {
+  overflow-wrap: anywhere;
+}
+
+.leden-state {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 24px;
+  padding: 20px;
+}
+
+.leden-state h2 {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+.leden-state--error {
+  border-color: #c87c6f;
+}
+
+.leden-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 24px;
+}
+
+.leden-card-link {
+  display: block;
+  height: 100%;
+}
+
+.leden-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgb(37 49 43 / 8%);
+  height: 100%;
+  padding: 20px;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.leden-card-link:hover .leden-card {
+  border-color: var(--accent);
+  box-shadow: 0 14px 30px rgb(37 49 43 / 12%);
+  transform: translateY(-2px);
+}
+
+.leden-card__meta {
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.leden-card h2 {
+  font-size: 1.2rem;
+  line-height: 1.3;
+  margin: 0 0 10px;
+}
+
+.leden-card__open {
+  color: var(--accent);
+  display: inline-flex;
+  font-weight: 700;
+  margin-top: 14px;
+}
+
+.leden-detail-page {
+  margin: 0 auto;
+  max-width: 980px;
+  padding: 32px 0;
+}
+
+.leden-detail-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgb(37 49 43 / 8%);
+  padding: 22px;
+}
+
+.leden-detail-facts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 16px;
+}
+
+.leden-detail-facts div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.leden-detail-facts span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.leden-detail-facts strong {
+  overflow-wrap: anywhere;
+}
+
+.leden-detail-section {
+  margin-top: 24px;
+}
+
+.leden-detail-section h2 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+  margin: 0 0 12px;
+}
+
+.leden-groups-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leden-group-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.leden-group-card div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.leden-group-card strong {
+  font-size: 0.95rem;
+}
+
+.leden-group-card small {
+  color: var(--muted);
+}
+
 .tijdlijn-page {
   margin: 0 auto;
   max-width: 980px;
