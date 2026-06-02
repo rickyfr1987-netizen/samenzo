@@ -724,6 +724,20 @@ a {
   margin-top: 8px;
 }
 
+.moment-detail-role-note {
+  background: #fffaf0;
+  border: 1px solid #e4d8bd;
+  border-radius: 10px;
+  color: #6f5a2c;
+  font-weight: 700;
+  margin-top: 12px;
+  padding: 10px;
+}
+
+.moment-detail-actions--role {
+  margin-top: 14px;
+}
+
 .moment-detail-state {
   margin-top: 24px;
 }

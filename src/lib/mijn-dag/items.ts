@@ -137,6 +137,7 @@ export async function fetchMijnDagItems(
         `
       )
       .eq("profiel_id", profielId)
+      .is("archived_at", null)
       .in("status", MIJN_DAG_DEELNAME_STATUSES),
     supabase
       .from("rolbezettingen")

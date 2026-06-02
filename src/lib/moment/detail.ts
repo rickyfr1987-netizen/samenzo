@@ -45,7 +45,10 @@ type MomentRolRow = Pick<
   | "maximum_aantal"
 > & {
   rolbezettingen:
-    | (Pick<Tables<"rolbezettingen">, "id" | "status"> & {
+    | (Pick<
+        Tables<"rolbezettingen">,
+        "id" | "profiel_id" | "status" | "geclaimd_at"
+      > & {
         profielen:
           | Pick<Tables<"profielen">, "id" | "weergavenaam" | "status">
           | null;
@@ -95,9 +98,11 @@ export type MomentDetailRole = {
   maximumCount: number | null;
   occupancies: {
     id: string;
+    profileId: string;
     profileName: string;
     profileStatus: Tables<"profielen">["status"] | null;
     status: Tables<"rolbezettingen">["status"];
+    claimedAt: string;
   }[];
 };
 
@@ -180,7 +185,8 @@ export async function fetchMomentDetail(
           )
         `
       )
-      .eq("moment_id", momentId),
+      .eq("moment_id", momentId)
+      .is("archived_at", null),
     supabase
       .from("momentrollen")
       .select(
@@ -194,7 +200,9 @@ export async function fetchMomentDetail(
           maximum_aantal,
           rolbezettingen (
             id,
+            profiel_id,
             status,
+            geclaimd_at,
             profielen (
               id,
               weergavenaam,
@@ -250,9 +258,11 @@ export async function fetchMomentDetail(
       maximumCount: role.maximum_aantal,
       occupancies: (role.rolbezettingen ?? []).map((occupancy) => ({
         id: occupancy.id,
+        profileId: occupancy.profiel_id,
         profileName: occupancy.profielen?.weergavenaam ?? "Onbekend profiel",
         profileStatus: occupancy.profielen?.status ?? null,
-        status: occupancy.status
+        status: occupancy.status,
+        claimedAt: occupancy.geclaimd_at
       }))
     }))
   };

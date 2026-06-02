@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchMomentDetail,
   type MomentDetailParticipation,
+  type MomentDetailRole,
   type MomentDetailData
 } from "@/src/lib/moment/detail";
 import {
@@ -15,6 +16,7 @@ import {
   registerForMoment,
   unregisterFromMoment
 } from "@/src/lib/moment/participation";
+import { claimMomentRole } from "@/src/lib/moment/role-claims";
 import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
@@ -120,6 +122,35 @@ function findCurrentParticipation(
   );
 }
 
+function isRoleOpenForClaim(role: MomentDetailRole) {
+  return role.status === "open" || role.status === "incompleet";
+}
+
+function getActiveRoleOccupancies(role: MomentDetailRole) {
+  return role.occupancies.filter((occupancy) => occupancy.status === "actief");
+}
+
+function findCurrentRoleOccupancy(role: MomentDetailRole, profielId: string) {
+  const currentProfileOccupancies = role.occupancies.filter(
+    (occupancy) => occupancy.profileId === profielId
+  );
+
+  return (
+    currentProfileOccupancies.find(
+      (occupancy) => occupancy.status === "actief"
+    ) ??
+    currentProfileOccupancies[0] ??
+    null
+  );
+}
+
+function hasRoleSpace(role: MomentDetailRole) {
+  return (
+    role.maximumCount === null ||
+    getActiveRoleOccupancies(role).length < role.maximumCount
+  );
+}
+
 export default function MomentDetailPage() {
   const params = useParams<{ momentId: string }>();
   const momentId = useMemo(() => {
@@ -208,12 +239,24 @@ export default function MomentDetailPage() {
     });
 
     try {
-      await registerForMoment({
+      const result = await registerForMoment({
         momentId,
         persoonId: detailState.context.persoon.id,
         profielId: detailState.context.currentProfiel.id
       });
-      await refreshMomentDetail("Je bent aangemeld voor dit moment.");
+
+      if (result.status === "already_registered") {
+        await refreshMomentDetail(
+          `Je deelname staat al op ${formatStatus(result.deelnameStatus)}.`
+        );
+        return;
+      }
+
+      await refreshMomentDetail(
+        result.status === "reactivated"
+          ? "Je deelname is opnieuw aangemeld."
+          : "Je bent aangemeld voor dit moment."
+      );
     } catch (error: unknown) {
       setActionState({
         status: "error",
@@ -260,6 +303,42 @@ export default function MomentDetailPage() {
     }
   }
 
+  async function handleClaimRole(role: MomentDetailRole) {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.persoon ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Rol claimen kan alleen met een gekoppeld actief profiel."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Rolclaim wordt opgeslagen..."
+    });
+
+    try {
+      await claimMomentRole({
+        momentRoleId: role.id,
+        persoonId: detailState.context.persoon.id,
+        profielId: detailState.context.currentProfiel.id
+      });
+      await refreshMomentDetail(`Je hebt de rol "${role.title}" geclaimd.`);
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Rol claimen is niet gelukt."
+      });
+    }
+  }
+
   const currentProfiel =
     detailState.status === "ready"
       ? detailState.context.currentProfiel
@@ -287,6 +366,12 @@ export default function MomentDetailPage() {
     Boolean(currentParticipation) &&
     isActiveParticipationStatus(currentParticipation!.status) &&
     actionState.status !== "running";
+  const activeParticipants =
+    detailState.status === "ready"
+      ? detailState.detail.participations.filter((participation) =>
+          isActiveParticipationStatus(participation.status)
+        )
+      : [];
 
   return (
     <section className="moment-detail-page">
@@ -499,14 +584,14 @@ export default function MomentDetailPage() {
             className="moment-detail-section"
             aria-labelledby="moment-participations-heading"
           >
-            <h2 id="moment-participations-heading">Deelnames</h2>
-            {detailState.detail.participations.length === 0 ? (
+            <h2 id="moment-participations-heading">Actieve deelnemers</h2>
+            {activeParticipants.length === 0 ? (
               <p className="moment-detail-empty">
-                Geen deelnames zichtbaar voor deze sessie.
+                Geen actieve deelnemers zichtbaar voor deze sessie.
               </p>
             ) : (
               <div className="moment-detail-list">
-                {detailState.detail.participations.map((participation) => (
+                {activeParticipants.map((participation) => (
                   <article
                     className="moment-detail-mini-card"
                     key={participation.id}
@@ -540,34 +625,82 @@ export default function MomentDetailPage() {
             ) : (
               <div className="moment-detail-list">
                 {detailState.detail.roles.map((role) => (
-                  <article className="moment-detail-mini-card" key={role.id}>
-                    <div className="moment-detail-mini-card__meta">
-                      <span>{formatStatus(role.roleType)}</span>
-                      <span>{formatStatus(role.status)}</span>
-                    </div>
-                    <h3>{role.title}</h3>
-                    {role.description ? <p>{role.description}</p> : null}
-                    <p>
-                      Nodig: {role.minimumCount}
-                      {role.maximumCount
-                        ? ` tot ${role.maximumCount}`
-                        : " of meer"}
-                    </p>
-                    {role.occupancies.length === 0 ? (
-                      <p className="moment-detail-empty">
-                        Geen bezetting zichtbaar.
-                      </p>
-                    ) : (
-                      <ul className="moment-detail-occupancy-list">
-                        {role.occupancies.map((occupancy) => (
-                          <li key={occupancy.id}>
-                            <strong>{occupancy.profileName}</strong>
-                            <span>{formatStatus(occupancy.status)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </article>
+                  (() => {
+                    const currentRoleOccupancy = currentProfiel
+                      ? findCurrentRoleOccupancy(role, currentProfiel.id)
+                      : null;
+                    const activeOccupancies = getActiveRoleOccupancies(role);
+                    const roleHasSpace = hasRoleSpace(role);
+                    const canClaimRole =
+                      detailState.context.persoon &&
+                      currentProfiel &&
+                      isRoleOpenForClaim(role) &&
+                      roleHasSpace &&
+                      currentRoleOccupancy?.status !== "actief" &&
+                      actionState.status !== "running";
+
+                    return (
+                      <article
+                        className="moment-detail-mini-card"
+                        key={role.id}
+                      >
+                        <div className="moment-detail-mini-card__meta">
+                          <span>{formatStatus(role.roleType)}</span>
+                          <span>{formatStatus(role.status)}</span>
+                        </div>
+                        <h3>{role.title}</h3>
+                        {role.description ? <p>{role.description}</p> : null}
+                        <p>
+                          Bezetting: {activeOccupancies.length} /{" "}
+                          {role.maximumCount ?? "geen maximum"}
+                        </p>
+                        <p>
+                          Nodig: {role.minimumCount}
+                          {role.maximumCount
+                            ? ` tot ${role.maximumCount}`
+                            : " of meer"}
+                        </p>
+
+                        {currentRoleOccupancy?.status === "actief" ? (
+                          <p className="moment-detail-role-note">
+                            Jij bezet deze rol.
+                          </p>
+                        ) : null}
+
+                        {!roleHasSpace ? (
+                          <p className="moment-detail-role-note">
+                            Deze rol is volgens de zichtbare bezetting gevuld.
+                          </p>
+                        ) : null}
+
+                        {role.occupancies.length === 0 ? (
+                          <p className="moment-detail-empty">
+                            Geen bezetting zichtbaar.
+                          </p>
+                        ) : (
+                          <ul className="moment-detail-occupancy-list">
+                            {role.occupancies.map((occupancy) => (
+                              <li key={occupancy.id}>
+                                <strong>{occupancy.profileName}</strong>
+                                <span>{formatStatus(occupancy.status)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {canClaimRole ? (
+                          <div className="moment-detail-actions moment-detail-actions--role">
+                            <button
+                              onClick={() => handleClaimRole(role)}
+                              type="button"
+                            >
+                              Rol claimen
+                            </button>
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })()
                 ))}
               </div>
             )}
