@@ -5,6 +5,7 @@ import type { Tables, TablesInsert } from "@/src/lib/database.types";
 export type RoleOccupancyStatus = Tables<"rolbezettingen">["status"];
 
 export const CLAIMED_ROLE_STATUS: RoleOccupancyStatus = "actief";
+export const RELEASED_ROLE_STATUS: RoleOccupancyStatus = "afgemeld";
 
 export async function claimMomentRole({
   momentRoleId,
@@ -42,11 +43,45 @@ export async function claimMomentRole({
   }
 }
 
+export async function releaseMomentRole({
+  roleOccupancyId,
+  profielId
+}: {
+  roleOccupancyId: string;
+  profielId: string;
+}) {
+  const supabase = getSupabaseBrowserClient();
+  const timestamp = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("rolbezettingen")
+    .update({
+      status: RELEASED_ROLE_STATUS,
+      afgemeld_at: timestamp,
+      updated_at: timestamp
+    })
+    .eq("id", roleOccupancyId)
+    .eq("profiel_id", profielId)
+    .eq("status", CLAIMED_ROLE_STATUS)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(toRoleClaimMessage(error.message));
+  }
+
+  if (!data) {
+    throw new Error(
+      "Rol vrijgeven is niet gelukt. Deze rolbezetting mag mogelijk niet door dit profiel worden aangepast."
+    );
+  }
+}
+
 function toRoleClaimMessage(message: string) {
   const lowerMessage = message.toLowerCase();
 
   if (lowerMessage.includes("row-level security")) {
-    return "Deze rol mag niet door dit profiel worden geclaimd volgens de huidige RLS-regels.";
+    return "Deze rolactie is niet toegestaan voor dit profiel volgens de huidige RLS-regels.";
   }
 
   if (

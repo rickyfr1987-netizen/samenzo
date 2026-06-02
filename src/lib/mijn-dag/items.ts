@@ -61,6 +61,11 @@ export type MijnDagItem = {
   reasons: MijnDagItemReason[];
 };
 
+const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
+  deelname: 1,
+  rolbezetting: 2
+};
+
 export function getLocalDayRange(date: Date) {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
@@ -90,7 +95,20 @@ function upsertMomentItem(
   const existingItem = itemsByMomentId.get(moment.id);
 
   if (existingItem) {
-    existingItem.reasons.push(reason);
+    const currentPriority = existingItem.reasons[0]
+      ? MIJN_DAG_REASON_PRIORITY[existingItem.reasons[0].type]
+      : 0;
+    const nextPriority = MIJN_DAG_REASON_PRIORITY[reason.type];
+
+    if (nextPriority > currentPriority) {
+      existingItem.reasons = [reason];
+      return;
+    }
+
+    if (nextPriority === currentPriority) {
+      existingItem.reasons.push(reason);
+    }
+
     return;
   }
 

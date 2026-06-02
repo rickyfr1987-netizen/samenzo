@@ -16,7 +16,10 @@ import {
   registerForMoment,
   unregisterFromMoment
 } from "@/src/lib/moment/participation";
-import { claimMomentRole } from "@/src/lib/moment/role-claims";
+import {
+  claimMomentRole,
+  releaseMomentRole
+} from "@/src/lib/moment/role-claims";
 import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
@@ -36,6 +39,8 @@ type ActionState =
   | { status: "running"; message: string | null }
   | { status: "success"; message: string }
   | { status: "error"; message: string };
+
+type MomentDetailRoleOccupancy = MomentDetailRole["occupancies"][number];
 
 const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
   dateStyle: "medium",
@@ -72,6 +77,26 @@ function formatDateTime(
 
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
+}
+
+const ROLE_BLOCKING_PARTICIPATION_STATUSES: MomentDetailParticipation["status"][] =
+  [
+    "voorgesteld",
+    "uitgenodigd",
+    "wachtlijst",
+    "afgemeld",
+    "geweigerd",
+    "geannuleerd",
+    "verlopen"
+  ];
+
+const ROLE_BLOCKING_CLAIM_MESSAGE =
+  "Je kunt deze rol nog niet claimen omdat je deelname nog niet actief is.";
+
+function isRoleBlockingParticipationStatus(
+  status: MomentDetailParticipation["status"]
+) {
+  return ROLE_BLOCKING_PARTICIPATION_STATUSES.includes(status);
 }
 
 function formatParticipationState(participation: MomentDetailParticipation | null) {
@@ -316,6 +341,17 @@ export default function MomentDetailPage() {
       return;
     }
 
+    if (
+      currentParticipation &&
+      isRoleBlockingParticipationStatus(currentParticipation.status)
+    ) {
+      setActionState({
+        status: "error",
+        message: ROLE_BLOCKING_CLAIM_MESSAGE
+      });
+      return;
+    }
+
     setActionState({
       status: "running",
       message: "Rolclaim wordt opgeslagen..."
@@ -339,6 +375,43 @@ export default function MomentDetailPage() {
     }
   }
 
+  async function handleReleaseRole(
+    role: MomentDetailRole,
+    occupancy: MomentDetailRoleOccupancy
+  ) {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Rol vrijgeven kan alleen met een gekoppeld actief profiel."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Rol wordt vrijgegeven..."
+    });
+
+    try {
+      await releaseMomentRole({
+        roleOccupancyId: occupancy.id,
+        profielId: detailState.context.currentProfiel.id
+      });
+      await refreshMomentDetail(`Je hebt de rol "${role.title}" vrijgegeven.`);
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Rol vrijgeven is niet gelukt."
+      });
+    }
+  }
+
   const currentProfiel =
     detailState.status === "ready"
       ? detailState.context.currentProfiel
@@ -352,6 +425,9 @@ export default function MomentDetailPage() {
       : null;
   const hasBlockingParticipation = currentParticipation
     ? isBlockingParticipationStatus(currentParticipation.status)
+    : false;
+  const hasRoleBlockingParticipation = currentParticipation
+    ? isRoleBlockingParticipationStatus(currentParticipation.status)
     : false;
   const canRegister =
     detailState.status === "ready" &&
@@ -372,6 +448,19 @@ export default function MomentDetailPage() {
           isActiveParticipationStatus(participation.status)
         )
       : [];
+  const activeRoleProfileIds =
+    detailState.status === "ready"
+      ? new Set(
+          detailState.detail.roles.flatMap((role) =>
+            getActiveRoleOccupancies(role).map(
+              (occupancy) => occupancy.profileId
+            )
+          )
+        )
+      : new Set<string>();
+  const regularActiveParticipants = activeParticipants.filter(
+    (participation) => !activeRoleProfileIds.has(participation.profileId)
+  );
 
   return (
     <section className="moment-detail-page">
@@ -585,13 +674,13 @@ export default function MomentDetailPage() {
             aria-labelledby="moment-participations-heading"
           >
             <h2 id="moment-participations-heading">Actieve deelnemers</h2>
-            {activeParticipants.length === 0 ? (
+            {regularActiveParticipants.length === 0 ? (
               <p className="moment-detail-empty">
-                Geen actieve deelnemers zichtbaar voor deze sessie.
+                Geen actieve deelnemers zonder rol zichtbaar voor deze sessie.
               </p>
             ) : (
               <div className="moment-detail-list">
-                {activeParticipants.map((participation) => (
+                {regularActiveParticipants.map((participation) => (
                   <article
                     className="moment-detail-mini-card"
                     key={participation.id}
@@ -631,12 +720,16 @@ export default function MomentDetailPage() {
                       : null;
                     const activeOccupancies = getActiveRoleOccupancies(role);
                     const roleHasSpace = hasRoleSpace(role);
+                    const roleClaimBlockedByParticipation =
+                      hasRoleBlockingParticipation &&
+                      currentRoleOccupancy?.status !== "actief";
                     const canClaimRole =
                       detailState.context.persoon &&
                       currentProfiel &&
                       isRoleOpenForClaim(role) &&
                       roleHasSpace &&
                       currentRoleOccupancy?.status !== "actief" &&
+                      !hasRoleBlockingParticipation &&
                       actionState.status !== "running";
 
                     return (
@@ -663,7 +756,7 @@ export default function MomentDetailPage() {
 
                         {currentRoleOccupancy?.status === "actief" ? (
                           <p className="moment-detail-role-note">
-                            Jij bezet deze rol.
+                            Jij hebt deze rol.
                           </p>
                         ) : null}
 
@@ -673,13 +766,19 @@ export default function MomentDetailPage() {
                           </p>
                         ) : null}
 
-                        {role.occupancies.length === 0 ? (
+                        {roleClaimBlockedByParticipation ? (
+                          <p className="moment-detail-role-note">
+                            {ROLE_BLOCKING_CLAIM_MESSAGE}
+                          </p>
+                        ) : null}
+
+                        {activeOccupancies.length === 0 ? (
                           <p className="moment-detail-empty">
-                            Geen bezetting zichtbaar.
+                            Geen actieve bezetting zichtbaar.
                           </p>
                         ) : (
                           <ul className="moment-detail-occupancy-list">
-                            {role.occupancies.map((occupancy) => (
+                            {activeOccupancies.map((occupancy) => (
                               <li key={occupancy.id}>
                                 <strong>{occupancy.profileName}</strong>
                                 <span>{formatStatus(occupancy.status)}</span>
@@ -695,6 +794,19 @@ export default function MomentDetailPage() {
                               type="button"
                             >
                               Rol claimen
+                            </button>
+                          </div>
+                        ) : null}
+                        {currentRoleOccupancy?.status === "actief" &&
+                        actionState.status !== "running" ? (
+                          <div className="moment-detail-actions moment-detail-actions--role">
+                            <button
+                              onClick={() =>
+                                handleReleaseRole(role, currentRoleOccupancy)
+                              }
+                              type="button"
+                            >
+                              Rol vrijgeven
                             </button>
                           </div>
                         ) : null}
