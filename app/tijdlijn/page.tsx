@@ -98,7 +98,7 @@ export default function TijdlijnPage() {
   return (
     <section className="tijdlijn-page">
       <div className="tijdlijn-page__header">
-        <p className="tijdlijn-page__eyebrow">Aandachtsstroom</p>
+        <p className="tijdlijn-page__eyebrow">Aandacht en communicatie</p>
         <h1>Tijdlijn</h1>
         <p>
           De tijdlijn toont praktische aandachtspunten. Geen chat, geen

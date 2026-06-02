@@ -148,7 +148,7 @@ export default function DevLoginPage() {
         <p className="dev-login-page__eyebrow">Alleen ontwikkeling</p>
         <h1>Supabase dev-login</h1>
         <p>
-          Gebruik deze tijdelijke beheerpagina om echte Supabase Auth sessies te
+          Gebruik deze tijdelijke beheerpagina om echte Supabase Auth-sessies te
           testen. Auth is nu de bron van waarheid; RLS bepaalt welke SAM&ZO data
           bij de gekoppelde persoon en profielen zichtbaar is.
         </p>
@@ -213,10 +213,6 @@ export default function DevLoginPage() {
                 <dd>{user?.email ?? "Geen"}</dd>
               </div>
               <div>
-                <dt>Auth user id</dt>
-                <dd>{user?.id ?? "Geen"}</dd>
-              </div>
-              <div>
                 <dt>SAM&ZO persoon</dt>
                 <dd>
                   {context?.persoon
@@ -245,8 +241,8 @@ export default function DevLoginPage() {
           ) : null}
           {loginState.status === "ready" && user && !context?.persoon ? (
             <p className="dev-login-note">
-              Auth user bestaat, maar personen.auth_user_id is nog niet aan
-              deze user id gekoppeld.
+              Auth-gebruiker is bekend, maar nog niet aan een SAM&ZO persoon
+              gekoppeld.
             </p>
           ) : null}
           {loginState.status === "ready" &&
@@ -270,8 +266,8 @@ export default function DevLoginPage() {
             wachtwoord. Bewaar dat wachtwoord niet in Git.
           </li>
           <li>
-            Kopieer de Auth user id uit Dashboard en koppel die aan precies een
-            seedpersoon via SQL.
+            Kopieer het id van de Auth-gebruiker uit het Dashboard en koppel die
+            via SQL aan een seedpersoon.
           </li>
           <li>
             Log hier in met dat Auth account. Daarna gebruikt /planning dezelfde

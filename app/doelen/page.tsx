@@ -91,7 +91,7 @@ export default function DoelenPage() {
   return (
     <section className="doelen-page">
       <div className="doelen-page__header">
-        <p className="doelen-page__eyebrow">Praktische richting</p>
+        <p className="doelen-page__eyebrow">Doelen geven richting</p>
         <h1>Doelen</h1>
         <p>
           Doelen geven richting. Ze zijn bedoeld als lichte richting in de

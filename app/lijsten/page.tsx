@@ -93,7 +93,7 @@ export default function LijstenPage() {
   return (
     <section className="lijsten-page">
       <div className="lijsten-page__header">
-        <p className="lijsten-page__eyebrow">Uitvoeringslaag</p>
+        <p className="lijsten-page__eyebrow">Lijsten helpen uitvoeren</p>
         <h1>Lijsten</h1>
         <p>
           Lijsten helpen uitvoeren. Dit overzicht toont praktische lijsten als

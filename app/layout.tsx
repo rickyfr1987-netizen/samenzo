@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SAM&ZO",
-  description: "SAM&ZO app projectskelet"
+  description: "SAM&ZO overzichtsapp met planning, lijsten, documenten, doelen, leden en tijdlijn"
 };
 
 export default function RootLayout({

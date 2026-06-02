@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const routes = [
   { href: "/mijn-dag", label: "Mijn dag" },
   { href: "/planning", label: "Planning" },
@@ -12,13 +14,16 @@ const routes = [
 export default function HomePage() {
   return (
     <section className="placeholder">
-      <h1>SAM&ZO projectskelet</h1>
-      <p>Slice 0 bevat alleen lege routes en structuur. Er is nog geen app-logica.</p>
+      <h1>SAM&ZO</h1>
+      <p>
+        Basisoverzicht van routes voor persoonlijke, gezamenlijke en
+        praktische overzichtspagina&apos;s.
+      </p>
       <nav aria-label="Skelet routes">
         <ul>
           {routes.map((route) => (
             <li key={route.href}>
-              <a href={route.href}>{route.label}</a>
+              <Link href={route.href}>{route.label}</Link>
             </li>
           ))}
         </ul>

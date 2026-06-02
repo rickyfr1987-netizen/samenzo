@@ -70,7 +70,7 @@ export default function DocumentenPage() {
   return (
     <section className="documenten-page">
       <div className="documenten-page__header">
-        <p className="documenten-page__eyebrow">Informatie</p>
+        <p className="documenten-page__eyebrow">Documenten informeren</p>
         <h1>Documenten</h1>
         <p>
           Documenten informeren. Dit is geen persoonlijke dossierruimte of
