@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -228,18 +229,26 @@ export default function PlanningPage() {
       {planning.status === "ready" && planning.moments.length > 0 ? (
         <div className="planning-grid">
           {planning.moments.map((moment) => (
-            <article className="planning-card" key={moment.id}>
-              <div className="planning-card__meta">
-                <span>{moment.categoryName ?? "Geen categorie"}</span>
-                <span>{formatStatus(moment.status)}</span>
-              </div>
-              <h2>{moment.title}</h2>
-              <p className="planning-card__time">{formatMomentTime(moment)}</p>
-              {moment.location ? (
-                <p className="planning-card__location">{moment.location}</p>
-              ) : null}
-              {moment.description ? <p>{moment.description}</p> : null}
-            </article>
+            <Link
+              className="planning-card-link"
+              href={`/planning/${moment.id}`}
+              key={moment.id}
+            >
+              <article className="planning-card">
+                <div className="planning-card__meta">
+                  <span>{moment.categoryName ?? "Geen categorie"}</span>
+                  <span>{formatStatus(moment.status)}</span>
+                </div>
+                <h2>{moment.title}</h2>
+                <p className="planning-card__time">
+                  {formatMomentTime(moment)}
+                </p>
+                {moment.location ? (
+                  <p className="planning-card__location">{moment.location}</p>
+                ) : null}
+                {moment.description ? <p>{moment.description}</p> : null}
+              </article>
+            </Link>
           ))}
         </div>
       ) : null}

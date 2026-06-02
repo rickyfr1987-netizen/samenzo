@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -231,25 +232,31 @@ export default function MijnDagPage() {
       {mijnDag.status === "ready" && mijnDag.items.length > 0 ? (
         <div className="mijn-dag-grid">
           {mijnDag.items.map((item) => (
-            <article className="mijn-dag-card" key={item.id}>
-              <div className="mijn-dag-card__meta">
-                <span>{item.categoryName ?? "Geen categorie"}</span>
-                <span>{formatStatus(item.status)}</span>
-              </div>
-              <h2>{item.title}</h2>
-              <p className="mijn-dag-card__time">{formatItemTime(item)}</p>
-              {item.location ? (
-                <p className="mijn-dag-card__location">{item.location}</p>
-              ) : null}
-              {item.description ? <p>{item.description}</p> : null}
-              <div className="mijn-dag-card__reasons">
-                {item.reasons.map((reason) => (
-                  <span key={`${item.id}-${reason.type}-${reason.label}`}>
-                    {reason.label}: {formatStatus(reason.status)}
-                  </span>
-                ))}
-              </div>
-            </article>
+            <Link
+              className="mijn-dag-card-link"
+              href={`/planning/${item.id}`}
+              key={item.id}
+            >
+              <article className="mijn-dag-card">
+                <div className="mijn-dag-card__meta">
+                  <span>{item.categoryName ?? "Geen categorie"}</span>
+                  <span>{formatStatus(item.status)}</span>
+                </div>
+                <h2>{item.title}</h2>
+                <p className="mijn-dag-card__time">{formatItemTime(item)}</p>
+                {item.location ? (
+                  <p className="mijn-dag-card__location">{item.location}</p>
+                ) : null}
+                {item.description ? <p>{item.description}</p> : null}
+                <div className="mijn-dag-card__reasons">
+                  {item.reasons.map((reason) => (
+                    <span key={`${item.id}-${reason.type}-${reason.label}`}>
+                      {reason.label}: {formatStatus(reason.status)}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            </Link>
           ))}
         </div>
       ) : null}
