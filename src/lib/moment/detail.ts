@@ -27,7 +27,10 @@ type MomentGroupRow = Pick<
     | null;
 };
 
-type DeelnameRow = Pick<Tables<"deelnames">, "id" | "status"> & {
+type DeelnameRow = Pick<
+  Tables<"deelnames">,
+  "id" | "profiel_id" | "status" | "status_updated_at" | "created_at"
+> & {
   profielen: Pick<Tables<"profielen">, "id" | "weergavenaam" | "status"> | null;
 };
 
@@ -74,9 +77,12 @@ export type MomentDetailGroup = {
 
 export type MomentDetailParticipation = {
   id: string;
+  profileId: string;
   profileName: string;
   profileStatus: Tables<"profielen">["status"] | null;
   status: Tables<"deelnames">["status"];
+  statusUpdatedAt: string | null;
+  createdAt: string;
 };
 
 export type MomentDetailRole = {
@@ -163,7 +169,10 @@ export async function fetchMomentDetail(
       .select(
         `
           id,
+          profiel_id,
           status,
+          status_updated_at,
+          created_at,
           profielen!deelnames_profiel_id_fkey (
             id,
             weergavenaam,
@@ -223,9 +232,12 @@ export async function fetchMomentDetail(
     participations: ((participationsResult.data ?? []) as DeelnameRow[]).map(
       (participation) => ({
         id: participation.id,
+        profileId: participation.profiel_id,
         profileName: participation.profielen?.weergavenaam ?? "Onbekend profiel",
         profileStatus: participation.profielen?.status ?? null,
-        status: participation.status
+        status: participation.status,
+        statusUpdatedAt: participation.status_updated_at,
+        createdAt: participation.created_at
       })
     ),
     roles: ((rolesResult.data ?? []) as MomentRolRow[]).map((role) => ({

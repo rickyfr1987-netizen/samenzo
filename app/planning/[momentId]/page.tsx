@@ -6,12 +6,33 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   fetchMomentDetail,
+  type MomentDetailParticipation,
   type MomentDetailData
 } from "@/src/lib/moment/detail";
+import {
+  isActiveParticipationStatus,
+  isBlockingParticipationStatus,
+  registerForMoment,
+  unregisterFromMoment
+} from "@/src/lib/moment/participation";
+import {
+  fetchCurrentSamzoContext,
+  type CurrentSamzoContext
+} from "@/src/lib/samzo/current-context";
 
 type MomentDetailState =
   | { status: "loading" }
-  | { status: "ready"; detail: MomentDetailData }
+  | {
+      status: "ready";
+      context: CurrentSamzoContext;
+      detail: MomentDetailData;
+    }
+  | { status: "error"; message: string };
+
+type ActionState =
+  | { status: "idle"; message: string | null }
+  | { status: "running"; message: string | null }
+  | { status: "success"; message: string }
   | { status: "error"; message: string };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
@@ -51,6 +72,54 @@ function formatStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+function formatParticipationState(participation: MomentDetailParticipation | null) {
+  if (!participation) {
+    return "Niet aangemeld";
+  }
+
+  if (participation.status === "ingeschreven") {
+    return "Ingeschreven";
+  }
+
+  if (participation.status === "afgemeld") {
+    return "Afgemeld";
+  }
+
+  if (participation.status === "voorgesteld") {
+    return "Voorgesteld";
+  }
+
+  if (participation.status === "uitgenodigd") {
+    return "Uitgenodigd";
+  }
+
+  if (participation.status === "wachtlijst") {
+    return "Op wachtlijst";
+  }
+
+  return formatStatus(participation.status);
+}
+
+function findCurrentParticipation(
+  participations: MomentDetailParticipation[],
+  profielId: string
+) {
+  const currentProfileParticipations = participations.filter(
+    (participation) => participation.profileId === profielId
+  );
+
+  return (
+    currentProfileParticipations.find((participation) =>
+      isActiveParticipationStatus(participation.status)
+    ) ??
+    currentProfileParticipations.find((participation) =>
+      isBlockingParticipationStatus(participation.status)
+    ) ??
+    currentProfileParticipations[0] ??
+    null
+  );
+}
+
 export default function MomentDetailPage() {
   const params = useParams<{ momentId: string }>();
   const momentId = useMemo(() => {
@@ -60,6 +129,10 @@ export default function MomentDetailPage() {
   }, [params.momentId]);
   const [detailState, setDetailState] = useState<MomentDetailState>({
     status: "loading"
+  });
+  const [actionState, setActionState] = useState<ActionState>({
+    status: "idle",
+    message: null
   });
 
   useEffect(() => {
@@ -75,10 +148,13 @@ export default function MomentDetailPage() {
       }
 
       try {
-        const detail = await fetchMomentDetail(momentId);
+        const [context, detail] = await Promise.all([
+          fetchCurrentSamzoContext(),
+          fetchMomentDetail(momentId)
+        ]);
 
         if (isMounted) {
-          setDetailState({ status: "ready", detail });
+          setDetailState({ status: "ready", context, detail });
         }
       } catch (error: unknown) {
         if (isMounted) {
@@ -99,6 +175,118 @@ export default function MomentDetailPage() {
       isMounted = false;
     };
   }, [momentId]);
+
+  async function refreshMomentDetail(successMessage?: string) {
+    const [context, detail] = await Promise.all([
+      fetchCurrentSamzoContext(),
+      fetchMomentDetail(momentId)
+    ]);
+
+    setDetailState({ status: "ready", context, detail });
+
+    if (successMessage) {
+      setActionState({ status: "success", message: successMessage });
+    }
+  }
+
+  async function handleRegister() {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.persoon ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Aanmelden kan alleen met een gekoppeld actief profiel."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Aanmelding wordt opgeslagen..."
+    });
+
+    try {
+      await registerForMoment({
+        momentId,
+        persoonId: detailState.context.persoon.id,
+        profielId: detailState.context.currentProfiel.id
+      });
+      await refreshMomentDetail("Je bent aangemeld voor dit moment.");
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Aanmelden is niet gelukt."
+      });
+    }
+  }
+
+  async function handleUnregister(participationId: string) {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Afmelden kan alleen met een gekoppeld actief profiel."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Afmelding wordt opgeslagen..."
+    });
+
+    try {
+      await unregisterFromMoment({
+        deelnameId: participationId,
+        momentId,
+        profielId: detailState.context.currentProfiel.id
+      });
+      await refreshMomentDetail("Je bent afgemeld voor dit moment.");
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Afmelden is niet gelukt."
+      });
+    }
+  }
+
+  const currentProfiel =
+    detailState.status === "ready"
+      ? detailState.context.currentProfiel
+      : null;
+  const currentParticipation =
+    detailState.status === "ready" && currentProfiel
+      ? findCurrentParticipation(
+          detailState.detail.participations,
+          currentProfiel.id
+        )
+      : null;
+  const hasBlockingParticipation = currentParticipation
+    ? isBlockingParticipationStatus(currentParticipation.status)
+    : false;
+  const canRegister =
+    detailState.status === "ready" &&
+    Boolean(detailState.detail.moment?.registrationOpen) &&
+    Boolean(detailState.context.persoon) &&
+    Boolean(currentProfiel) &&
+    !hasBlockingParticipation &&
+    actionState.status !== "running";
+  const canUnregister =
+    detailState.status === "ready" &&
+    Boolean(currentProfiel) &&
+    Boolean(currentParticipation) &&
+    isActiveParticipationStatus(currentParticipation!.status) &&
+    actionState.status !== "running";
 
   return (
     <section className="moment-detail-page">
@@ -178,6 +366,107 @@ export default function MomentDetailPage() {
               <span>Perspectief</span>
               <strong>RLS bepaalt wat zichtbaar is</strong>
             </div>
+          </section>
+
+          <section
+            className="moment-detail-participation-panel"
+            aria-labelledby="moment-own-participation-heading"
+          >
+            <div>
+              <p className="moment-detail-participation-panel__label">
+                Jouw deelname
+              </p>
+              <h2 id="moment-own-participation-heading">
+                {formatParticipationState(currentParticipation)}
+              </h2>
+              <p>
+                Acties gebruiken de huidige Supabase Auth sessie, het gekoppelde
+                SAM&ZO profiel en de bestaande RLS-regels.
+              </p>
+            </div>
+
+            <dl className="moment-detail-participation-facts">
+              <div>
+                <dt>Profiel</dt>
+                <dd>
+                  {currentProfiel?.weergavenaam ??
+                    "Geen actief gekoppeld profiel"}
+                </dd>
+              </div>
+              <div>
+                <dt>Deelnamestatus</dt>
+                <dd>{formatParticipationState(currentParticipation)}</dd>
+              </div>
+              <div>
+                <dt>Inschrijving</dt>
+                <dd>
+                  {detailState.detail.moment.registrationOpen
+                    ? "Open"
+                    : "Gesloten"}
+                </dd>
+              </div>
+            </dl>
+
+            {!detailState.context.authUser ? (
+              <p className="moment-detail-action-note">
+                Log in via beheer om je voor dit moment aan of af te melden.
+              </p>
+            ) : null}
+
+            {detailState.context.authUser && !currentProfiel ? (
+              <p className="moment-detail-action-note">
+                Deze gebruiker heeft geen enkel actief gekoppeld profiel voor
+                deelname-acties.
+              </p>
+            ) : null}
+
+            {currentParticipation &&
+            !isActiveParticipationStatus(currentParticipation.status) &&
+            isBlockingParticipationStatus(currentParticipation.status) ? (
+              <p className="moment-detail-action-note">
+                Er is al een lopende deelname met status{" "}
+                {formatStatus(currentParticipation.status)}. Deze eerste versie
+                wijzigt die status nog niet.
+              </p>
+            ) : null}
+
+            {currentProfiel &&
+            !currentParticipation &&
+            !detailState.detail.moment.registrationOpen ? (
+              <p className="moment-detail-action-note">
+                Aanmelden staat uit omdat de inschrijving voor dit moment
+                gesloten is.
+              </p>
+            ) : null}
+
+            <div className="moment-detail-actions">
+              {canRegister ? (
+                <button onClick={handleRegister} type="button">
+                  Aanmelden
+                </button>
+              ) : null}
+              {canUnregister && currentParticipation ? (
+                <button
+                  onClick={() => handleUnregister(currentParticipation.id)}
+                  type="button"
+                >
+                  Afmelden
+                </button>
+              ) : null}
+            </div>
+
+            {actionState.message ? (
+              <p
+                className={
+                  actionState.status === "error"
+                    ? "moment-detail-action-message moment-detail-action-message--error"
+                    : "moment-detail-action-message"
+                }
+                role="status"
+              >
+                {actionState.message}
+              </p>
+            ) : null}
           </section>
 
           <section

@@ -20,6 +20,14 @@ type DeelnameWithMoment = Pick<Tables<"deelnames">, "id" | "status"> & {
   momenten: MomentForMijnDag | null;
 };
 
+const MIJN_DAG_DEELNAME_STATUSES: Tables<"deelnames">["status"][] = [
+  "voorgesteld",
+  "uitgenodigd",
+  "geaccepteerd",
+  "ingeschreven",
+  "wachtlijst"
+];
+
 type RolbezettingWithMomentrol = Pick<
   Tables<"rolbezettingen">,
   "id" | "status"
@@ -128,7 +136,8 @@ export async function fetchMijnDagItems(
           )
         `
       )
-      .eq("profiel_id", profielId),
+      .eq("profiel_id", profielId)
+      .in("status", MIJN_DAG_DEELNAME_STATUSES),
     supabase
       .from("rolbezettingen")
       .select(
