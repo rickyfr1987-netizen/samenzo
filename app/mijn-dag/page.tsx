@@ -50,11 +50,33 @@ function formatStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function fromDateInputValue(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  return new Date(year, month - 1, day);
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+
+  return nextDate;
+}
+
 export default function MijnDagPage() {
   const [mijnDag, setMijnDag] = useState<MijnDagState>({
     status: "loading"
   });
   const [today] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   useEffect(() => {
     let isMounted = true;
@@ -64,7 +86,7 @@ export default function MijnDagPage() {
         const context = await fetchCurrentSamzoContext();
         const currentProfiel = context.currentProfiel;
         const items = currentProfiel
-          ? await fetchMijnDagItems(currentProfiel.id, today)
+          ? await fetchMijnDagItems(currentProfiel.id, selectedDate)
           : [];
 
         if (isMounted) {
@@ -88,10 +110,24 @@ export default function MijnDagPage() {
     return () => {
       isMounted = false;
     };
-  }, [today]);
+  }, [selectedDate]);
 
   const context = mijnDag.status === "ready" ? mijnDag.context : null;
-  const { start } = getLocalDayRange(today);
+  const { start } = getLocalDayRange(selectedDate);
+  const selectedDateValue = toDateInputValue(selectedDate);
+
+  function updateSelectedDate(date: Date) {
+    setMijnDag({ status: "loading" });
+    setSelectedDate(date);
+  }
+
+  function updateSelectedDateFromInput(value: string) {
+    if (!value) {
+      return;
+    }
+
+    updateSelectedDate(fromDateInputValue(value));
+  }
 
   return (
     <section className="mijn-dag-page">
@@ -99,14 +135,39 @@ export default function MijnDagPage() {
         <p className="mijn-dag-page__eyebrow">Persoonlijke werkelijkheid</p>
         <h1>Mijn dag</h1>
         <p>
-          Persoonlijke momenten voor vandaag op basis van je gekoppelde profiel,
-          deelnames en actieve rolbezettingen.
+          Persoonlijke momenten voor de gekozen datum op basis van je gekoppelde
+          profiel, deelnames en actieve rolbezettingen.
         </p>
       </div>
 
+      <section className="mijn-dag-date-controls" aria-label="Datum kiezen">
+        <button onClick={() => updateSelectedDate(addDays(selectedDate, -1))}>
+          Vorige dag
+        </button>
+        <button onClick={() => updateSelectedDate(new Date(today))}>
+          Vandaag
+        </button>
+        <button onClick={() => updateSelectedDate(addDays(selectedDate, 1))}>
+          Volgende dag
+        </button>
+        <label>
+          <span>Datum</span>
+          <input
+            onChange={(event) =>
+              updateSelectedDateFromInput(event.target.value)
+            }
+            onInput={(event) =>
+              updateSelectedDateFromInput(event.currentTarget.value)
+            }
+            type="date"
+            value={selectedDateValue}
+          />
+        </label>
+      </section>
+
       <section className="mijn-dag-context" aria-label="Huidige context">
         <div>
-          <span>Vandaag</span>
+          <span>Gekozen datum</span>
           <strong>{dateFormatter.format(start)}</strong>
         </div>
         <div>
@@ -159,10 +220,10 @@ export default function MijnDagPage() {
       mijnDag.context.currentProfiel &&
       mijnDag.items.length === 0 ? (
         <div className="mijn-dag-state">
-          <h2>Niets zichtbaar voor vandaag</h2>
+          <h2>Niets zichtbaar voor deze datum</h2>
           <p>
-            Er zijn vandaag geen deelnames of actieve rolbezettingen zichtbaar
-            voor dit profiel.
+            Er zijn op deze datum geen deelnames of actieve rolbezettingen
+            zichtbaar voor dit profiel.
           </p>
         </div>
       ) : null}
