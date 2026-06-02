@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"
