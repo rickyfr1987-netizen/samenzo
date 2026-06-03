@@ -1,10 +1,24 @@
 import type { User } from "@supabase/supabase-js";
 
 import type { CurrentSamzoContext } from "@/src/lib/samzo/current-context";
+import type { CurrentSamzoProfiel } from "@/src/lib/samzo/current-context";
 
 export const SAM_PERSOON_ID = "00000000-0000-4000-8000-000000000004";
 export const SAM_PROFILE_ID = "10000000-0000-4000-8000-000000000004";
 export const BAS_PROFILE_ID = "10000000-0000-4000-8000-000000000001";
+export const MILAN_PROFILE_ID = "10000000-0000-4000-8000-000000000003";
+
+export function createSamzoProfile(overrides: Partial<CurrentSamzoProfiel> = {}) {
+  return {
+    id: SAM_PROFILE_ID,
+    persoon_id: SAM_PERSOON_ID,
+    weergavenaam: "Sam Bewoner",
+    status: "actief" as const,
+    avatar_url: null,
+    zichtbaar_voor_leden: true,
+    ...overrides
+  };
+}
 
 export function createSamzoContext(
   overrides: Partial<CurrentSamzoContext> = {}
@@ -18,12 +32,7 @@ export function createSamzoContext(
     status: "actief" as const
   };
   const profiel = {
-    id: SAM_PROFILE_ID,
-    persoon_id: SAM_PERSOON_ID,
-    weergavenaam: "Sam Bewoner",
-    status: "actief" as const,
-    avatar_url: null,
-    zichtbaar_voor_leden: true
+    ...createSamzoProfile()
   };
 
   return {
