@@ -43,7 +43,7 @@ type RolbezettingWithMomentrol = Pick<
 };
 
 export type MijnDagItemReason = {
-  type: "deelname" | "rolbezetting" | "voorstel";
+  type: "deelname" | "rolbezetting" | "voorstel" | "taak" | "aandacht";
   label: string;
   status: string;
 };
@@ -56,15 +56,23 @@ export type MijnDagItem = {
   endsAt: string | null;
   isAllDay: boolean;
   location: string | null;
-  status: Tables<"momenten">["status"];
+  status: string;
   categoryName: string | null;
   reasons: MijnDagItemReason[];
+};
+
+export type MijnDagTaskItem = MijnDagItem & {
+  assigneeStatus: Tables<"taakuitvoerders">["status"];
+  listId: string | null;
+  listTitle: string | null;
 };
 
 const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
   deelname: 1,
   rolbezetting: 2,
-  voorstel: 3
+  voorstel: 3,
+  taak: 0,
+  aandacht: 0
 };
 
 export function getLocalDayRange(date: Date) {
@@ -86,6 +94,162 @@ function isMomentOnDay(moment: MomentForMijnDag, day: Date) {
   const momentStart = new Date(moment.start_at);
 
   return momentStart >= start && momentStart < end;
+}
+
+const MIJN_DAG_TASK_ASSIGNEE_STATUSES: Tables<"taakuitvoerders">["status"][] = [
+  "actief",
+  "voorgesteld"
+];
+
+const MIJN_DAG_TASK_STATUSES: Tables<"taken">["status"][] = [
+  "open",
+  "geaccepteerd",
+  "bezig",
+  "voorgesteld"
+];
+
+type TaakuitvoerderForProfileRow = Pick<
+  Tables<"taakuitvoerders">,
+  "taak_id" | "status"
+>;
+
+type TaakuitvoerderStatus = TaakuitvoerderForProfileRow["status"];
+
+type TaskListRow = Pick<
+  Tables<"lijsten">,
+  "id" | "titel"
+> & {
+  momenten:
+    | (Pick<
+        Tables<"momenten">,
+        "id" | "titel" | "start_at" | "hele_dag" | "status"
+      > & {
+        id: string;
+      })
+    | null;
+};
+
+type TaskForMijnDagRow = Pick<
+  Tables<"taken">,
+  | "id"
+  | "titel"
+  | "beschrijving"
+  | "status"
+  | "deadline_at"
+> & {
+  lijsten: TaskListRow | null;
+};
+
+export async function fetchMijnDagTaskItems(
+  profielId: string,
+  day: Date
+): Promise<MijnDagTaskItem[]> {
+  const supabase = getSupabaseBrowserClient();
+  const assigneesResult = await supabase
+    .from("taakuitvoerders")
+    .select("taak_id, status")
+    .eq("profiel_id", profielId)
+    .in("status", MIJN_DAG_TASK_ASSIGNEE_STATUSES);
+
+  if (assigneesResult.error) {
+    throw new Error(assigneesResult.error.message);
+  }
+
+  const assignees = assigneesResult.data as TaakuitvoerderForProfileRow[] | null;
+  if (!assignees || assignees.length === 0) {
+    return [];
+  }
+
+  const taakIds = Array.from(new Set(assignees.map((assignee) => assignee.taak_id)));
+  const assigneeStatusByTaskId = new Map<string, TaakuitvoerderStatus>(
+    assignees.map((assignee) => [assignee.taak_id, assignee.status])
+  );
+
+  const taakSelect = `
+    id,
+    titel,
+    beschrijving,
+    status,
+    deadline_at,
+    lijsten!taken_lijst_id_fkey (
+      id,
+      titel,
+      momenten!lijsten_gekoppeld_moment_id_fkey (
+        id,
+        titel,
+        start_at,
+        hele_dag,
+        status
+      )
+    )
+  `;
+
+  const { data, error } = await supabase
+    .from("taken")
+    .select(taakSelect)
+    .in("id", taakIds)
+    .is("archived_at", null)
+    .order("deadline_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { start, end } = getLocalDayRange(day);
+  const taskRows = ((data ?? []) as TaskForMijnDagRow[]).filter((task) =>
+    MIJN_DAG_TASK_STATUSES.includes(task.status)
+  );
+  const items: MijnDagTaskItem[] = [];
+
+  for (const task of taskRows) {
+    const assigneeStatus =
+      assigneeStatusByTaskId.get(task.id) ??
+      "actief";
+    const linkedMoment = task.lijsten?.momenten;
+    const displayDate = task.deadline_at ?? linkedMoment?.start_at ?? null;
+
+    if (!displayDate) {
+      continue;
+    }
+
+    const value = new Date(displayDate);
+    if (Number.isNaN(value.getTime()) || value < start || value >= end) {
+      continue;
+    }
+
+    items.push({
+      id: task.id,
+      title: task.titel,
+      description: task.beschrijving,
+      startsAt: displayDate,
+      endsAt: null,
+      isAllDay: linkedMoment?.hele_dag ?? false,
+      location: linkedMoment?.titel ?? null,
+      status: task.status,
+      categoryName: task.lijsten?.titel ?? "Taak",
+      reasons: [
+        {
+          type: "taak",
+          label: "Taak",
+          status: assigneeStatus ?? task.status
+        }
+      ],
+      assigneeStatus,
+      listId: task.lijsten?.id ?? null,
+      listTitle: task.lijsten?.titel ?? null
+    });
+  }
+
+  return items.sort((first, second) => {
+    const firstTime = first.startsAt
+      ? new Date(first.startsAt).getTime()
+      : 0;
+    const secondTime = second.startsAt
+      ? new Date(second.startsAt).getTime()
+      : 0;
+
+    return firstTime - secondTime;
+  });
 }
 
 function upsertMomentItem(

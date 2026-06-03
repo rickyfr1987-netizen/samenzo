@@ -294,6 +294,9 @@ a {
 .planning-card-link,
 .mijn-dag-card-link {
   display: block;
+}
+
+.planning-card-link {
   height: 100%;
 }
 
@@ -478,7 +481,7 @@ a {
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 12px 28px rgb(37 49 43 / 8%);
-  height: 100%;
+  min-height: 0;
   padding: 20px;
   transition:
     border-color 160ms ease,

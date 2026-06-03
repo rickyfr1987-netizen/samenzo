@@ -2,10 +2,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import MijnDagPage from "@/app/mijn-dag/page";
-import { fetchMijnDagItems } from "@/src/lib/mijn-dag/items";
-import { fetchCurrentSamzoContext } from "@/src/lib/samzo/current-context";
-import type { CurrentSamzoProfiel } from "@/src/lib/samzo/current-context";
+import {
+  fetchCurrentSamzoContext,
+  type CurrentSamzoProfiel
+} from "@/src/lib/samzo/current-context";
+import {
+  fetchMijnDagItems,
+  fetchMijnDagTaskItems
+} from "@/src/lib/mijn-dag/items";
 import { fetchOpenMomentProposalsForProfile } from "@/src/lib/voorstellen/items";
+import { fetchVisibleTimelineItems } from "@/src/lib/tijdlijn/items";
 import {
   createSamzoContext,
   currentDayIsoAt,
@@ -26,12 +32,17 @@ vi.mock("@/src/lib/mijn-dag/items", async (importOriginal) => {
 
   return {
     ...actual,
-    fetchMijnDagItems: vi.fn()
+    fetchMijnDagItems: vi.fn(),
+    fetchMijnDagTaskItems: vi.fn()
   };
 });
 
 vi.mock("@/src/lib/voorstellen/items", () => ({
   fetchOpenMomentProposalsForProfile: vi.fn()
+}));
+
+vi.mock("@/src/lib/tijdlijn/items", () => ({
+  fetchVisibleTimelineItems: vi.fn()
 }));
 
 vi.mock("@/src/lib/voorstellen/actions", () => ({
@@ -41,17 +52,21 @@ vi.mock("@/src/lib/voorstellen/actions", () => ({
 
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
 const fetchMijnDagItemsMock = vi.mocked(fetchMijnDagItems);
+const fetchMijnDagTaskItemsMock = vi.mocked(fetchMijnDagTaskItems);
 const fetchOpenMomentProposalsForProfileMock = vi.mocked(
   fetchOpenMomentProposalsForProfile
 );
+const fetchVisibleTimelineItemsMock = vi.mocked(fetchVisibleTimelineItems);
 
-describe("Mijn dag voorstelweergave", () => {
+describe("Mijn dag overzicht", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.clearAllMocks();
     fetchCurrentSamzoContextMock.mockReset();
     fetchMijnDagItemsMock.mockReset();
+    fetchMijnDagTaskItemsMock.mockReset();
     fetchOpenMomentProposalsForProfileMock.mockReset();
+    fetchVisibleTimelineItemsMock.mockReset();
     window.localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, SAM_PROFILE_ID);
   });
 
@@ -60,6 +75,7 @@ describe("Mijn dag voorstelweergave", () => {
 
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
     fetchOpenMomentProposalsForProfileMock.mockResolvedValue([
       {
         acceptedAt: null,
@@ -87,12 +103,15 @@ describe("Mijn dag voorstelweergave", () => {
         updatedAt: null
       }
     ]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
 
     render(<MijnDagPage />);
 
-    expect(
-      await screen.findByRole("heading", { name: "Koffieochtend" })
-    ).toBeInTheDocument();
+    const title = await screen.findByRole("heading", { name: "Koffieochtend" });
+    expect(title).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Koffieochtend" })).toHaveLength(
+      1
+    );
     expect(screen.getByText("Voorstel: voorgesteld")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Accepteren" })
@@ -103,6 +122,108 @@ describe("Mijn dag voorstelweergave", () => {
     expect(fetchOpenMomentProposalsForProfileMock).toHaveBeenCalledWith(
       SAM_PROFILE_ID
     );
+  });
+
+  it("toont een taak op de geselecteerde datum met taskcontext", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([
+      {
+        assigneeStatus: "actief",
+        description:
+          "Kies de benodigde materialen voor het ochtendbezoek.",
+        endsAt: null,
+        id: "taak-1",
+        isAllDay: false,
+        listId: "lijst-1",
+        listTitle: "Dagtaken",
+        location: null,
+        reasons: [{ label: "Taak", status: "actief", type: "taak" }],
+        startsAt: currentDayIsoAt(9),
+        status: "open",
+        title: "Medicatie klaarzetten",
+        categoryName: "Daglijst"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Medicatie klaarzetten" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Taak: actief")).toBeInTheDocument();
+  });
+
+  it("toont relevante aandacht uit de tijdlijn zonder momentduplicatie", async () => {
+    const startsAt = currentDayIsoAt(8);
+    const linkedMomentId = "moment-1";
+
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([
+      {
+        acceptedAt: null,
+        canRespond: true,
+        createdAt: "2026-06-03T08:00:00.000Z",
+        declinedAt: null,
+        explanation: "Sam kan aansluiten bij de koffieochtend.",
+        id: "voorstel-1",
+        linkedId: linkedMomentId,
+        linkedMoment: {
+          categoryName: "Ontmoeting",
+          description: "Rustig samen koffiedrinken.",
+          endsAt: currentDayIsoAt(11),
+          id: linkedMomentId,
+          isAllDay: false,
+          location: "Huiskamer",
+          startsAt,
+          status: "open",
+          title: "Koffieochtend"
+        },
+        linkedType: "moment",
+        status: "open",
+        title: "Voorstel koffieochtend",
+        type: "deelname_aan_moment",
+        updatedAt: null
+      }
+    ]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      {
+        body: "Open signaal voor dit moment.",
+        createdAt: currentDayIsoAt(9),
+        id: "signaal-1",
+        proposalId: null,
+        proposalReceivingProfileId: null,
+        related: null,
+        source: "signaal",
+        status: "nieuw",
+        title: "Meldpunt",
+        urgency: "actie_nodig"
+      },
+      {
+        body: "Voorstel voor Sam.",
+        createdAt: currentDayIsoAt(8),
+        id: "voorstel-1",
+        proposalId: "voorstel-1",
+        proposalReceivingProfileId: SAM_PROFILE_ID,
+        related: { id: linkedMomentId, type: "moment" },
+        source: "voorstel",
+        status: "open",
+        title: "Koffieochtend",
+        urgency: "actie_nodig"
+      }
+    ]);
+
+    render(<MijnDagPage />);
+
+    expect(await screen.findByRole("heading", { name: "Koffieochtend" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Koffieochtend" })).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Meldpunt" })).toBeInTheDocument();
+    expect(screen.getAllByText("Aandacht: actie nodig")).toHaveLength(1);
   });
 
   it("herlaadt data direct na profielwissel", async () => {
@@ -124,8 +245,12 @@ describe("Mijn dag voorstelweergave", () => {
     fetchCurrentSamzoContextMock.mockResolvedValueOnce(milanContext);
     fetchMijnDagItemsMock.mockResolvedValue([]);
     fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
     fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
     fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
 
     render(<MijnDagPage />);
 
@@ -148,12 +273,9 @@ describe("Mijn dag voorstelweergave", () => {
 
     await waitFor(() => {
       expect(fetchMijnDagItemsMock).toHaveBeenCalledTimes(2);
+      expect(fetchMijnDagTaskItemsMock).toHaveBeenCalledTimes(2);
+      expect(fetchVisibleTimelineItemsMock).toHaveBeenCalledTimes(2);
     });
-    expect(fetchMijnDagItemsMock).toHaveBeenNthCalledWith(
-      2,
-      MILAN_PROFILE_ID,
-      expect.any(Date)
-    );
     expect(fetchCurrentSamzoContextMock).toHaveBeenCalledTimes(2);
     expect(fetchOpenMomentProposalsForProfileMock).toHaveBeenNthCalledWith(
       2,

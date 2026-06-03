@@ -13,17 +13,28 @@ import {
 } from "@/src/lib/voorstellen/items";
 import {
   fetchMijnDagItems,
+  fetchMijnDagTaskItems,
   getLocalDayRange,
-  type MijnDagItem
+  type MijnDagItem,
+  type MijnDagTaskItem
 } from "@/src/lib/mijn-dag/items";
 import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import {
+  fetchVisibleTimelineItems,
+  type TimelineItem
+} from "@/src/lib/tijdlijn/items";
 import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type MijnDagProposalCardItem = MijnDagItem & {
   proposal: VoorstelItem | null;
+};
+
+type MijnDagDisplayItem = MijnDagProposalCardItem & {
+  kind: "moment" | "task" | "attention";
+  linkHref: string | null;
 };
 
 type MijnDagState =
@@ -31,7 +42,7 @@ type MijnDagState =
   | {
       status: "ready";
       context: CurrentSamzoContext;
-      items: MijnDagProposalCardItem[];
+      items: MijnDagDisplayItem[];
     }
   | { status: "error"; message: string };
 
@@ -50,7 +61,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
   timeStyle: "short"
 });
 
-function formatItemTime(item: MijnDagProposalCardItem) {
+function formatItemTime(item: MijnDagDisplayItem) {
   if (!item.startsAt) {
     return "Tijd nog niet bekend";
   }
@@ -72,12 +83,6 @@ function formatItemTime(item: MijnDagProposalCardItem) {
 
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
-}
-
-function formatDateLabel(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
-  ).padStart(2, "0")}`;
 }
 
 function isDateForSelectedDay(startsAt: string | null, day: Date) {
@@ -112,7 +117,44 @@ function addDays(date: Date, days: number) {
   return nextDate;
 }
 
-function mergeMomentsWithProposals(
+function getSourceLabel(source: TimelineItem["source"]) {
+  if (source === "tijdlijnbericht") {
+    return "Tijdlijnbericht";
+  }
+
+  if (source === "signaal") {
+    return "Signaal";
+  }
+
+  if (source === "supportvraag") {
+    return "Supportvraag";
+  }
+
+  return "Voorstel";
+}
+
+function isAttentionTimelineItem(item: TimelineItem) {
+  if (item.source === "voorstel") {
+    return item.status === "open";
+  }
+
+  if (item.source === "supportvraag") {
+    return (
+      item.status === "nieuw" ||
+      item.status === "actie_nodig" ||
+      item.status === "in_behandeling"
+    );
+  }
+
+  return (
+    item.urgency === "urgent" ||
+    item.urgency === "escalatie" ||
+    item.urgency === "actie_nodig" ||
+    item.urgency === "aandacht_nodig"
+  );
+}
+
+function mergeMomentItemsWithProposals(
   moments: MijnDagItem[],
   proposals: VoorstelItem[],
   selectedDate: Date
@@ -124,7 +166,6 @@ function mergeMomentsWithProposals(
       (voorstel) =>
         voorstel.linkedType === "moment" &&
         voorstel.linkedMoment !== null &&
-        voorstel.status === "open" &&
         isDateForSelectedDay(voorstel.linkedMoment.startsAt, selectedDate)
     )
     .forEach((voorstel) => {
@@ -133,20 +174,19 @@ function mergeMomentsWithProposals(
     });
 
   const mergedByMoment = new Map<string, MijnDagProposalCardItem>();
-  const mergedItems: MijnDagProposalCardItem[] = [];
+  const mergedItems: MijnDagDisplayItem[] = [];
 
   for (const moment of moments) {
     const momentProposals = proposalsByMoment.get(moment.id) ?? [];
     const activeProposal = momentProposals.find((proposal) => proposal.canRespond) ?? null;
-
-    const reasons = [...moment.reasons];
+    const reasons: MijnDagItem["reasons"] = [...moment.reasons];
 
     if (activeProposal) {
-      const hasReasonAlready = reasons.some(
+      const hasProposalReason = reasons.some(
         (reason) => reason.type === "voorstel"
       );
 
-      if (!hasReasonAlready) {
+      if (!hasProposalReason) {
         reasons.push({
           type: "voorstel",
           label: "Voorstel",
@@ -155,57 +195,145 @@ function mergeMomentsWithProposals(
       }
     }
 
-    mergedByMoment.set(moment.id, {
+    const mergedItem: MijnDagProposalCardItem = {
       ...moment,
       proposal: activeProposal,
       reasons
-    });
+    };
 
+    mergedByMoment.set(moment.id, mergedItem);
     mergedItems.push({
-      ...moment,
-      proposal: activeProposal,
-      reasons
+      ...mergedItem,
+      kind: "moment",
+      linkHref: `/planning/${moment.id}`
     });
   }
 
-  for (const list of proposalsByMoment.values()) {
-    const proposal = list.find((item) => item.canRespond) ?? list[0];
+  for (const proposalsForMoment of proposalsByMoment.values()) {
+    const proposal = proposalsForMoment.find((item) => item.canRespond) ?? proposalsForMoment[0];
 
     if (!proposal?.linkedMoment) {
       continue;
     }
 
-    const existing = mergedByMoment.get(proposal.linkedMoment.id);
-
-    if (!existing) {
-      mergedItems.push({
-        id: proposal.linkedMoment.id,
-        title: proposal.linkedMoment.title,
-        description: proposal.linkedMoment.description,
-        startsAt: proposal.linkedMoment.startsAt,
-        endsAt: proposal.linkedMoment.endsAt,
-        isAllDay: proposal.linkedMoment.isAllDay,
-        location: proposal.linkedMoment.location,
-        status: proposal.linkedMoment.status,
-        categoryName: proposal.linkedMoment.categoryName,
-        reasons: [
-          {
-            type: "voorstel",
-            label: "Voorstel",
-            status: "voorgesteld"
-          }
-        ],
-        proposal
-      });
+    if (mergedByMoment.has(proposal.linkedMoment.id)) {
+      continue;
     }
+
+    const reasons: MijnDagItem["reasons"] = [
+      {
+        type: "voorstel",
+        label: "Voorstel",
+        status: "voorgesteld"
+      }
+    ];
+
+    const mergedItem: MijnDagProposalCardItem = {
+      id: proposal.linkedMoment.id,
+      title: proposal.linkedMoment.title,
+      description: proposal.linkedMoment.description,
+      startsAt: proposal.linkedMoment.startsAt,
+      endsAt: proposal.linkedMoment.endsAt,
+      isAllDay: proposal.linkedMoment.isAllDay,
+      location: proposal.linkedMoment.location,
+      status: proposal.linkedMoment.status,
+      categoryName: proposal.linkedMoment.categoryName,
+      reasons,
+      proposal
+    };
+
+    mergedByMoment.set(proposal.linkedMoment.id, mergedItem);
+    mergedItems.push({
+      ...mergedItem,
+      kind: "moment",
+      linkHref: `/planning/${proposal.linkedMoment.id}`
+    });
   }
 
-  return mergedItems.sort((first, second) => {
-    const firstTime = first.startsAt ? new Date(first.startsAt).getTime() : 0;
-    const secondTime = second.startsAt ? new Date(second.startsAt).getTime() : 0;
+  return {
+    mergedItems: mergedItems.sort((first, second) => {
+      const firstTime = first.startsAt ? new Date(first.startsAt).getTime() : 0;
+      const secondTime = second.startsAt ? new Date(second.startsAt).getTime() : 0;
 
-    return firstTime - secondTime;
-  });
+      return firstTime - secondTime;
+    }),
+    mergedMomentIds: mergedByMoment
+  };
+}
+
+function mapTaskItems(tasks: MijnDagTaskItem[]) {
+  return tasks.map((task) => ({
+    ...task,
+    kind: "task" as const,
+    linkHref: task.listId ? `/lijsten/${task.listId}` : null,
+    proposal: null
+  }));
+}
+
+function mapTimelineAttentionItems(
+  timelineItems: TimelineItem[],
+  activeProfileId: string,
+  selectedDate: Date,
+  shownMomentIds: Set<string>
+) {
+  const seenTimelineIds = new Set<string>();
+
+  return timelineItems
+    .filter((item) => {
+      if (!isAttentionTimelineItem(item)) {
+        return false;
+      }
+
+      if (!isDateForSelectedDay(item.createdAt, selectedDate)) {
+        return false;
+      }
+
+      if (item.source === "voorstel") {
+        return (
+          item.proposalReceivingProfileId !== null &&
+          item.proposalReceivingProfileId === activeProfileId
+        );
+      }
+
+      return true;
+    })
+    .filter((item) => {
+      const linkedMomentId =
+        item.related?.type === "moment" ? item.related.id : null;
+      return linkedMomentId ? !shownMomentIds.has(linkedMomentId) : true;
+    })
+    .filter((item) => {
+      const key = `${item.source}-${item.id}`;
+
+      if (seenTimelineIds.has(key)) {
+        return false;
+      }
+
+      seenTimelineIds.add(key);
+      return true;
+    })
+    .map((item) => ({
+      id: `${item.source}-${item.id}`,
+      title: item.title,
+      description: item.body,
+      startsAt: item.createdAt,
+      endsAt: null,
+      isAllDay: false,
+      location: null,
+      status: item.status,
+      categoryName: getSourceLabel(item.source),
+      reasons: [
+        {
+          type: "aandacht" as const,
+          label: "Aandacht",
+          status: item.urgency ?? item.status
+        }
+      ],
+      proposal: null,
+      kind: "attention",
+      linkHref:
+        item.related?.type === "moment" ? `/planning/${item.related.id}` : null
+    } as MijnDagDisplayItem));
 }
 
 export default function MijnDagPage() {
@@ -230,11 +358,38 @@ export default function MijnDagPage() {
         return;
       }
 
-      const [items, proposals] = await Promise.all([
+      const [items, proposals, tasks, timelineItems] = await Promise.all([
         fetchMijnDagItems(currentProfiel.id, date),
-        fetchOpenMomentProposalsForProfile(currentProfiel.id)
+        fetchOpenMomentProposalsForProfile(currentProfiel.id),
+        fetchMijnDagTaskItems(currentProfiel.id, date),
+        fetchVisibleTimelineItems()
       ]);
-      const merged = mergeMomentsWithProposals(items, proposals, date);
+
+      const { mergedItems, mergedMomentIds } = mergeMomentItemsWithProposals(
+        items,
+        proposals,
+        date
+      );
+
+      const merged = [...mergedItems, ...mapTaskItems(tasks)]
+        .concat(
+          mapTimelineAttentionItems(
+            timelineItems,
+            currentProfiel.id,
+            date,
+            new Set(mergedMomentIds.keys())
+          )
+        )
+        .sort((first, second) => {
+          const firstTime = first.startsAt
+            ? new Date(first.startsAt).getTime()
+            : 0;
+          const secondTime = second.startsAt
+            ? new Date(second.startsAt).getTime()
+            : 0;
+
+          return firstTime - secondTime;
+        });
 
       setMijnDag({ status: "ready", context, items: merged });
     } catch {
@@ -270,7 +425,6 @@ export default function MijnDagPage() {
       context.currentProfiel.id === context.ownProfiel.id
   );
   const { start } = getLocalDayRange(selectedDate);
-  const selectedDateValue = toDateInputValue(selectedDate);
 
   async function handleProposalDecision(
     actie: "accept" | "reject",
@@ -368,8 +522,8 @@ export default function MijnDagPage() {
         <p className="mijn-dag-page__eyebrow">Persoonlijke werkelijkheid</p>
         <h1>Mijn dag</h1>
         <p>
-          Persoonlijke momenten voor de gekozen datum op basis van je gekoppelde
-          profiel, deelnames en open voorstellen.
+          Persoonlijke momenten, taken en aandachtspunten voor de gekozen datum
+          op basis van je gekoppelde profiel.
         </p>
       </div>
 
@@ -393,7 +547,7 @@ export default function MijnDagPage() {
               updateSelectedDateFromInput(event.currentTarget.value)
             }
             type="date"
-            value={selectedDateValue}
+            value={toDateInputValue(selectedDate)}
           />
         </label>
       </section>
@@ -453,24 +607,20 @@ export default function MijnDagPage() {
       mijnDag.context.currentProfiel &&
       mijnDag.items.length === 0 ? (
         <div className="mijn-dag-state">
-          <h2>Niets zichtbaar voor deze datum</h2>
-          <p>
-            Er zijn op deze datum geen deelnames of actieve voorstellen zichtbaar
-            voor dit profiel.
-          </p>
+          <h2>Geen activiteiten</h2>
+          <p>Er staat niets in deze dag voor dit profiel.</p>
         </div>
       ) : null}
 
       {mijnDag.status === "ready" &&
-      mijnDag.context.currentProfiel &&
       !canActOnCurrentProfile &&
       context?.ownProfiel ? (
         <div className="mijn-dag-state mijn-dag-state--error">
           <h2>Voorstelactie niet beschikbaar</h2>
           <p>
-            Je bekijkt momenteel {mijnDag.context.currentProfiel.weergavenaam}.
-            Voorstellen accepteren/afwijzen is tijdelijk alleen actief voor je eigen
-            profiel: {context.ownProfiel.weergavenaam}.
+            Je bekijkt momenteel {mijnDag.context.currentProfiel?.weergavenaam}.
+            Voorstellen accepteren/afwijzen is tijdelijk alleen actief voor je
+            eigen profiel: {context.ownProfiel.weergavenaam}.
           </p>
         </div>
       ) : null}
@@ -478,31 +628,45 @@ export default function MijnDagPage() {
       {mijnDag.status === "ready" && mijnDag.items.length > 0 ? (
         <div className="mijn-dag-grid">
           {mijnDag.items.map((item) => (
-            <article className="mijn-dag-card" key={item.id}>
-              <Link className="mijn-dag-card-link" href={`/planning/${item.id}`}>
-                <div className="mijn-dag-card__meta">
-                  <span>{item.categoryName ?? "Geen categorie"}</span>
-                  <span>{formatStatus(item.status)}</span>
-                </div>
+            <article
+              className="mijn-dag-card"
+              key={`${item.id}-${item.kind}`}
+            >
+              <div className="mijn-dag-card__meta">
+                <span>{item.categoryName ?? "Geen categorie"}</span>
+                <span>{formatStatus(item.status)}</span>
+              </div>
+              {item.linkHref ? (
+                <Link className="mijn-dag-card-link" href={item.linkHref}>
+                  <h2>{item.title}</h2>
+                </Link>
+              ) : (
                 <h2>{item.title}</h2>
-                <p className="mijn-dag-card__time">
-                  {formatItemTime(item)}
-                </p>
-                {item.location ? (
-                  <p className="mijn-dag-card__location">{item.location}</p>
-                ) : null}
-                {item.description ? <p>{item.description}</p> : null}
-                <div className="mijn-dag-card__reasons">
-                  {item.reasons.map((reason) => (
-                    <span key={`${item.id}-${reason.type}-${reason.label}`}>
-                      {reason.label}
-                      {reason.type === "voorstel"
-                        ? ": voorgesteld"
-                        : `: ${formatStatus(reason.status)}`}
-                    </span>
-                  ))}
-                </div>
-              </Link>
+              )}
+              <p className="mijn-dag-card__time">
+                {formatItemTime(item)}
+              </p>
+              {item.location ? (
+                <p className="mijn-dag-card__location">{item.location}</p>
+              ) : null}
+              {item.description ? <p>{item.description}</p> : null}
+              <div className="mijn-dag-card__kind">
+                {item.kind === "moment"
+                  ? "Moment"
+                  : item.kind === "task"
+                    ? "Taak"
+                    : "Aandacht"}
+              </div>
+              <div className="mijn-dag-card__reasons">
+                {item.reasons.map((reason) => (
+                  <span key={`${item.id}-${reason.type}-${reason.label}`}>
+                    {reason.label}
+                    {reason.type === "voorstel"
+                      ? ": voorgesteld"
+                      : `: ${formatStatus(reason.status)}`}
+                  </span>
+                ))}
+              </div>
 
               {item.proposal && item.proposal.canRespond ? (
                 <div className="mijn-dag-proposal-actions">
