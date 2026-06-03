@@ -295,6 +295,18 @@ function mapTimelineAttentionItems(
         );
       }
 
+      if (item.source === "signaal") {
+        return item.targetProfileId === activeProfileId;
+      }
+
+      if (item.source === "supportvraag") {
+        return item.targetProfileId === activeProfileId;
+      }
+
+      if (item.source === "tijdlijnbericht") {
+        return item.targetProfileId === activeProfileId;
+      }
+
       return true;
     })
     .filter((item) => {

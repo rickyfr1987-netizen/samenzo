@@ -11,6 +11,8 @@ type TimelineMessageRow = Pick<
   | "inhoud"
   | "urgent"
   | "created_at"
+  | "gericht_aan_profiel_id"
+  | "gericht_aan_groep_id"
   | "gekoppeld_type"
   | "gekoppeld_id"
   | "supportvraag_id"
@@ -25,6 +27,8 @@ type SignalRow = Pick<
   | "titel"
   | "omschrijving"
   | "created_at"
+  | "gericht_aan_profiel_id"
+  | "gericht_aan_groep_id"
   | "gekoppeld_type"
   | "gekoppeld_id"
 >;
@@ -57,7 +61,12 @@ type LinkedMomentRow = Pick<
 
 type SupportQuestionRow = Pick<
   Tables<"supportvragen">,
-  "id" | "onderwerp" | "omschrijving" | "status" | "created_at"
+  | "id"
+  | "onderwerp"
+  | "omschrijving"
+  | "status"
+  | "created_at"
+  | "aangemaakt_vanuit_profiel_id"
 >;
 
 export type TimelineItemSource =
@@ -85,6 +94,8 @@ export type TimelineItem = {
   status: string;
   urgency: string | null;
   createdAt: string;
+  targetProfileId: string | null;
+  targetGroupId: string | null;
   proposalId: string | null;
   proposalReceivingProfileId: string | null;
   related:
@@ -102,7 +113,7 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
       supabase
         .from("tijdlijnberichten")
         .select(
-          "id, type, status, titel, inhoud, urgent, created_at, gekoppeld_type, gekoppeld_id, supportvraag_id, signaal_id"
+          "id, type, status, titel, inhoud, urgent, created_at, gericht_aan_profiel_id, gericht_aan_groep_id, gekoppeld_type, gekoppeld_id, supportvraag_id, signaal_id"
         )
         .is("archived_at", null)
         .or(
@@ -112,16 +123,16 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
-        .from("signalen")
+      .from("signalen")
         .select(
-          "id, niveau, status, titel, omschrijving, created_at, gekoppeld_type, gekoppeld_id"
+          "id, niveau, status, titel, omschrijving, created_at, gericht_aan_profiel_id, gericht_aan_groep_id, gekoppeld_type, gekoppeld_id"
         )
         .is("archived_at", null)
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
-        .from("supportvragen")
-        .select("id, onderwerp, omschrijving, status, created_at")
+      .from("supportvragen")
+        .select("id, onderwerp, omschrijving, status, created_at, aangemaakt_vanuit_profiel_id")
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
@@ -177,6 +188,8 @@ function mapTimelineMessage(message: TimelineMessageRow): TimelineItem {
     status: message.status,
     urgency: message.urgent ? "urgent" : message.type,
     createdAt: message.created_at,
+    targetProfileId: message.gericht_aan_profiel_id,
+    targetGroupId: message.gericht_aan_groep_id,
     proposalId: null,
     proposalReceivingProfileId: null,
     related: getRelated({
@@ -197,6 +210,8 @@ function mapSignal(signal: SignalRow): TimelineItem {
     status: signal.status,
     urgency: signal.niveau,
     createdAt: signal.created_at,
+    targetProfileId: signal.gericht_aan_profiel_id,
+    targetGroupId: signal.gericht_aan_groep_id,
     proposalId: null,
     proposalReceivingProfileId: null,
     related: getRelated({
@@ -214,6 +229,8 @@ function mapSupportQuestion(question: SupportQuestionRow): TimelineItem {
     body: question.omschrijving,
     status: question.status,
     urgency: getSupportUrgency(question.status),
+    targetProfileId: question.aangemaakt_vanuit_profiel_id,
+    targetGroupId: null,
     createdAt: question.created_at,
     proposalId: null,
     proposalReceivingProfileId: null,
@@ -243,6 +260,8 @@ function mapVoorstel(
     createdAt: voorstel.created_at,
     proposalId: voorstel.id,
     proposalReceivingProfileId: voorstel.ontvangend_profiel_id,
+    targetProfileId: null,
+    targetGroupId: null,
     related: getRelated({
       linkedType: voorstel.gekoppeld_type,
       linkedId: voorstel.gekoppeld_id

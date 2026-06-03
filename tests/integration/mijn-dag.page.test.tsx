@@ -385,6 +385,8 @@ describe("Mijn dag overzicht", () => {
         proposalId: null,
         proposalReceivingProfileId: null,
         related: null,
+        targetProfileId: SAM_PROFILE_ID,
+        targetGroupId: null,
         source: "signaal",
         status: "nieuw",
         title: "Meldpunt",
@@ -397,9 +399,25 @@ describe("Mijn dag overzicht", () => {
         proposalId: "voorstel-1",
         proposalReceivingProfileId: SAM_PROFILE_ID,
         related: { id: linkedMomentId, type: "moment" },
+        targetProfileId: null,
+        targetGroupId: null,
         source: "voorstel",
         status: "open",
         title: "Koffieochtend",
+        urgency: "actie_nodig"
+      },
+      {
+        body: "Algemene aandacht zonder persoonlijk doelwit.",
+        createdAt: currentDayIsoAt(7),
+        id: "bericht-1",
+        proposalId: null,
+        proposalReceivingProfileId: null,
+        related: null,
+        targetProfileId: null,
+        targetGroupId: null,
+        source: "tijdlijnbericht",
+        status: "actie_nodig",
+        title: "Algemeen Signaal",
         urgency: "actie_nodig"
       }
     ]);
@@ -410,7 +428,66 @@ describe("Mijn dag overzicht", () => {
       .toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Koffieochtend" })).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Meldpunt" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Algemeen Signaal" })).not.toBeInTheDocument();
     expect(screen.getAllByText("Aandacht: actie nodig")).toHaveLength(1);
+  });
+
+  it("toont alleen aandacht die duidelijk naar het actieve profiel verwijst", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      {
+        body: "Signaal voor Bas.",
+        createdAt: currentDayIsoAt(9),
+        id: "signaal-bas",
+        proposalId: null,
+        proposalReceivingProfileId: null,
+        related: null,
+        targetProfileId: "10000000-0000-4000-8000-000000000001",
+        targetGroupId: null,
+        source: "signaal",
+        status: "actie_nodig",
+        title: "Bas krijgt dit",
+        urgency: "actie_nodig"
+      },
+      {
+        body: "Signaal voor Sam.",
+        createdAt: currentDayIsoAt(10),
+        id: "signaal-sam",
+        proposalId: null,
+        proposalReceivingProfileId: null,
+        related: null,
+        targetProfileId: SAM_PROFILE_ID,
+        targetGroupId: null,
+        source: "signaal",
+        status: "actie_nodig",
+        title: "Sam krijgt dit",
+        urgency: "actie_nodig"
+      },
+      {
+        body: "Groepsgericht signaal zonder personalisatie.",
+        createdAt: currentDayIsoAt(10),
+        id: "signaal-groep",
+        proposalId: null,
+        proposalReceivingProfileId: null,
+        related: null,
+        targetProfileId: null,
+        targetGroupId: "20000000-0000-4000-8000-000000000003",
+        source: "signaal",
+        status: "actie_nodig",
+        title: "Groepstoegang",
+        urgency: "actie_nodig"
+      }
+    ]);
+
+    render(<MijnDagPage />);
+
+    expect(await screen.findByRole("heading", { name: "Sam krijgt dit" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Bas krijgt dit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Groepstoegang" })).not.toBeInTheDocument();
   });
 
   it("herlaadt data direct na profielwissel", async () => {
