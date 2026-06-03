@@ -1,20 +1,12 @@
 # SAM&ZO App
 
-Slice 0 bevat alleen het projectskelet voor de SAM&ZO-app. Dit skelet is bedoeld als startpunt voor latere GO/FIX-gestuurde slices.
+De SAM&ZO-app is voorbij Slice 0. De repo bevat inmiddels een werkende
+Next.js/Supabase-basis met Auth-context, RLS-gedreven datahelpers, migraties,
+development seeddata en schermen voor onder meer Mijn dag, Planning, Momenten,
+Tijdlijn, Lijsten, Documenten, Doelen en Leden.
 
-## Bouwvolgorde
-
-0. Projectskelet: structuur zonder businesslogica.
-1. Identiteit en Groepen: Auth, Persoon, Profiel, profieltoegang en groepen, pas na GO.
-2. Categorieen en Momenten: categoriebeheer, Planning en Momenten, pas na GO.
-3. Voorstellen en Deelnames: Mijn dag, deelname, uitnodiging en voorstel, pas na GO.
-4. Rollen: vaste Momentrollen en rolbezetting, pas na GO.
-5. Lijsten en Taken: uitvoering via lijsten en taken, pas na GO.
-6. Documenten en Notities: documenten informeren; begeleidingsnotities blijven apart, pas na GO.
-7. Doelen: lichte doelenlaag, pas na GO.
-8. Support en Beheer: support via Tijdlijn en basisbeheer, pas na GO.
-
-Elke slice stopt op audit. Verder bouwen gebeurt alleen na expliciete GO. Bij FIX wordt alleen de aangegeven slice gecorrigeerd.
+Gebruik de documenten in `docs/source/`, `docs/architecture/` en de auditdocs
+in `docs/audits/` als bron van waarheid voor vervolgrondes.
 
 ## Vaste SAM&ZO-regels
 
@@ -28,30 +20,23 @@ Elke slice stopt op audit. Verder bouwen gebeurt alleen na expliciete GO. Bij FI
 - Begeleidingsnotities zijn geen Documenten.
 - Support loopt via Tijdlijn.
 - Tags geven geen rechten.
-- RLS is later de echte beveiligingslaag.
-- SQL v0.2 is alleen een technische blauwdruk.
+- RLS is de echte beveiligingslaag voor Supabase-data.
+- SQL- en architectuurdocumenten zijn richtinggevend, maar bestaande migraties
+  bepalen de actuele lokale/remote schemastatus.
 
-## Verboden zonder expliciete GO
+## Werkafspraken
 
-- Geen Auth bouwen.
-- Geen Supabase-koppeling maken.
-- Geen databasequeries toevoegen.
-- Geen RLS toevoegen.
-- Geen migraties uitvoeren.
-- Geen API-routes maken.
-- Geen domeinlogica toevoegen.
-- Geen echte formulieren bouwen.
-- Geen echte data of seeddata toevoegen.
-- Geen nieuwe modules toevoegen.
-- Geen functionele app-logica toevoegen.
-- SQL v0.2 niet interpreteren als uitvoerbare productie-migratie.
+- Bewerk geen al gepushte migraties; maak een nieuwe migratie.
+- Verzwak RLS niet zonder expliciete functionele opdracht.
+- Gebruik geen service-role in frontendcode.
+- Voeg geen nieuwe functionaliteit toe tijdens stabiliteits- of audit-rondes.
+- Commit niets automatisch zonder opdracht.
 
 ## Structuur
 
-- `app/`: lege Next.js routes voor de hoofdgebieden.
-- `components/`: componentmappen zonder functionele componenten.
-- `domain/`: domeinmappen zonder domeinservices of businesslogica.
-- `lib/`: technische helpermappen zonder implementatie.
-- `supabase/`: placeholders voor latere Supabase-configuratie, migrations, seed en tests.
-- `tests/`: placeholders voor latere RLS-, e2e- en fixturetests.
+- `app/`: Next.js routes en schermen.
+- `components/`: gedeelde appcomponenten.
+- `src/lib/`: Supabase-clients, contexthelpers, datahelpers en acties.
+- `supabase/`: configuratie, migraties, seed en Supabase-testplaceholder.
+- `tests/`: placeholders voor toekomstige RLS-, e2e- en fixturetests.
 - `docs/`: bron-, architectuur- en promptdocumentatie.

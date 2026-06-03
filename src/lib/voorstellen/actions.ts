@@ -1,14 +1,11 @@
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
-import {
-  ACCEPTED_PARTICIPATION_STATUS,
-  REJECTED_PARTICIPATION_STATUS,
-  registerForMoment,
-  updateParticipationForProposal
-} from "@/src/lib/moment/participation";
 import type { Tables } from "@/src/lib/database.types";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 type VoorstelStatus = Tables<"voorstellen">["status"];
 type VoorstelType = Tables<"voorstellen">["type"];
+type DeelnameStatus = Tables<"deelnames">["status"];
+type VoorstelAntwoord = "accept" | "reject";
 
 type VoorstelActionInput = {
   voorstelId: string;
@@ -24,85 +21,64 @@ export type VoorstelActionResult = {
   linkedId: string;
 };
 
-const ACCEPTED_STATUS: VoorstelStatus = "geaccepteerd";
-const DECLINED_STATUS: VoorstelStatus = "geweigerd";
-const MOMENT_PARTICIPATION_TYPES: readonly VoorstelType[] = [
-  "deelname_aan_moment",
-  "uitnodiging_moment"
-];
+type ProposalResponseRpcResult = {
+  voorstel_id: string;
+  voorstel_titel: string | null;
+  voorstel_type: VoorstelType;
+  gekoppeld_type: string;
+  gekoppeld_id: string;
+  voorstel_status: VoorstelStatus;
+  deelname_id: string | null;
+  deelname_status: DeelnameStatus | null;
+};
+
+type ProposalResponseRpcClient = {
+  rpc(
+    fn: "beantwoord_moment_voorstel",
+    args: {
+      target_voorstel_id: string;
+      target_profiel_id: string;
+      antwoord: VoorstelAntwoord;
+    }
+  ): {
+    maybeSingle(): Promise<{
+      data: ProposalResponseRpcResult | null;
+      error: PostgrestError | null;
+    }>;
+  };
+};
 
 export async function acceptVoorstel(
   input: VoorstelActionInput
 ): Promise<VoorstelActionResult> {
-  const result = await updateVoorstelStatus(input, ACCEPTED_STATUS);
-
-  if (result.linkedType === "moment" && shouldActivateParticipation(result.type)) {
-    if (!input.persoonId) {
-      throw new Error(
-        "Je account is niet volledig verbonden met een profiel voor deze actie."
-      );
-    }
-
-    await registerForMoment({
-      momentId: result.linkedId,
-      persoonId: input.persoonId,
-      profielId: input.profielId,
-      targetParticipationStatus: ACCEPTED_PARTICIPATION_STATUS
-    });
-  }
-
-  return result;
+  return respondToVoorstel(input, "accept");
 }
 
 export async function declineVoorstel(
   input: VoorstelActionInput
 ): Promise<VoorstelActionResult> {
-  const result = await updateVoorstelStatus(input, DECLINED_STATUS);
-
-  if (result.linkedType === "moment" && shouldActivateParticipation(result.type)) {
-    if (!input.profielId) {
-      return result;
-    }
-
-    await updateParticipationForProposal({
-      momentId: result.linkedId,
-      profielId: input.profielId,
-      status: REJECTED_PARTICIPATION_STATUS
-    });
-  }
-
-  return result;
+  return respondToVoorstel(input, "reject");
 }
 
-async function updateVoorstelStatus(
-  { voorstelId, profielId }: VoorstelActionInput,
-  status: VoorstelStatus
+async function respondToVoorstel(
+  { voorstelId, profielId, persoonId }: VoorstelActionInput,
+  antwoord: VoorstelAntwoord
 ): Promise<VoorstelActionResult> {
-  const supabase = getSupabaseBrowserClient();
-  const now = new Date().toISOString();
+  if (antwoord === "accept" && !persoonId) {
+    throw new Error(
+      "Je account is niet volledig verbonden met een profiel voor deze actie."
+    );
+  }
 
-  const payload =
-    status === ACCEPTED_STATUS
-      ? {
-          status,
-          geaccepteerd_at: now,
-          geweigerd_at: null,
-          updated_at: now
-        }
-      : {
-          status,
-          geweigerd_at: now,
-          geaccepteerd_at: null,
-          updated_at: now
-        };
+  const supabase =
+    getSupabaseBrowserClient() as unknown as ProposalResponseRpcClient;
 
   const { data, error } = await supabase
-    .from("voorstellen")
-    .update(payload)
-    .eq("id", voorstelId)
-    .eq("ontvangend_profiel_id", profielId)
-    .eq("status", "open")
-    .select("id, titel, type, gekoppeld_type, gekoppeld_id")
+    .rpc("beantwoord_moment_voorstel", {
+      target_voorstel_id: voorstelId,
+      target_profiel_id: profielId,
+      antwoord
+    })
     .maybeSingle();
 
   if (error) {
@@ -116,25 +92,23 @@ async function updateVoorstelStatus(
   }
 
   return {
-    id: data.id,
-    title: data.titel,
-    type: data.type,
+    id: data.voorstel_id,
+    title: data.voorstel_titel,
+    type: data.voorstel_type,
     linkedType: data.gekoppeld_type,
     linkedId: data.gekoppeld_id
   };
 }
 
-function shouldActivateParticipation(
-  type: VoorstelType
-): type is (typeof MOMENT_PARTICIPATION_TYPES)[number] {
-  return MOMENT_PARTICIPATION_TYPES.includes(type);
-}
-
 function toVoorstelActionMessage(message: string) {
   const lowered = message.toLowerCase();
 
-  if (lowered.includes("row-level security")) {
-    return "Deze voorstelactie is niet toegestaan voor dit profiel volgens de huidige RLS-regels.";
+  if (
+    lowered.includes("row-level security") ||
+    lowered.includes("not allowed") ||
+    lowered.includes("niet toegestaan")
+  ) {
+    return "Je kunt deze voorstelactie niet uitvoeren met dit profiel.";
   }
 
   return "De voorstelactie kon niet worden uitgevoerd. Probeer opnieuw.";

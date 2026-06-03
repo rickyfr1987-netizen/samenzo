@@ -37,6 +37,7 @@ type VoorstelRow = Pick<
   | "titel"
   | "toelichting"
   | "created_at"
+  | "ontvangend_profiel_id"
   | "gekoppeld_type"
   | "gekoppeld_id"
 >;
@@ -85,6 +86,7 @@ export type TimelineItem = {
   urgency: string | null;
   createdAt: string;
   proposalId: string | null;
+  proposalReceivingProfileId: string | null;
   related:
     | {
         type: string;
@@ -125,7 +127,7 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
       supabase
         .from("voorstellen")
         .select(
-          "id, type, status, titel, toelichting, created_at, gekoppeld_type, gekoppeld_id"
+          "id, type, status, titel, toelichting, created_at, ontvangend_profiel_id, gekoppeld_type, gekoppeld_id"
         )
         .eq("status", "open")
         .order("created_at", { ascending: false })
@@ -176,6 +178,7 @@ function mapTimelineMessage(message: TimelineMessageRow): TimelineItem {
     urgency: message.urgent ? "urgent" : message.type,
     createdAt: message.created_at,
     proposalId: null,
+    proposalReceivingProfileId: null,
     related: getRelated({
       linkedType: message.gekoppeld_type,
       linkedId: message.gekoppeld_id,
@@ -195,6 +198,7 @@ function mapSignal(signal: SignalRow): TimelineItem {
     urgency: signal.niveau,
     createdAt: signal.created_at,
     proposalId: null,
+    proposalReceivingProfileId: null,
     related: getRelated({
       linkedType: signal.gekoppeld_type,
       linkedId: signal.gekoppeld_id
@@ -212,6 +216,7 @@ function mapSupportQuestion(question: SupportQuestionRow): TimelineItem {
     urgency: getSupportUrgency(question.status),
     createdAt: question.created_at,
     proposalId: null,
+    proposalReceivingProfileId: null,
     related: null
   };
 }
@@ -237,6 +242,7 @@ function mapVoorstel(
     urgency: "actie_nodig",
     createdAt: voorstel.created_at,
     proposalId: voorstel.id,
+    proposalReceivingProfileId: voorstel.ontvangend_profiel_id,
     related: getRelated({
       linkedType: voorstel.gekoppeld_type,
       linkedId: voorstel.gekoppeld_id

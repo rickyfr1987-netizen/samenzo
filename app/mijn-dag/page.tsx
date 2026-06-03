@@ -235,13 +235,10 @@ export default function MijnDagPage() {
       const merged = mergeMomentsWithProposals(items, proposals, date);
 
       setMijnDag({ status: "ready", context, items: merged });
-    } catch (error: unknown) {
+    } catch {
       setMijnDag({
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Onbekende fout tijdens het laden van Mijn dag."
+        message: "Mijn dag kon niet worden geladen. Probeer later opnieuw."
       });
     }
   }

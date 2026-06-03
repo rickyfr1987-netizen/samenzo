@@ -154,6 +154,15 @@ export default function TijdlijnPage() {
       return;
     }
 
+    if (item.proposalReceivingProfileId !== timeline.context.currentProfiel.id) {
+      setProposalActionState({
+        status: "error",
+        message: "Dit voorstel hoort niet bij het actieve profiel.",
+        proposalId: item.proposalId
+      });
+      return;
+    }
+
     setProposalActionState({
       status: "running",
       message:
@@ -278,7 +287,10 @@ export default function TijdlijnPage() {
                 ? item.related.id
                 : null;
             const showProposalActions =
-              isProposalOpen && proposalMomentId !== null;
+              isProposalOpen &&
+              proposalMomentId !== null &&
+              item.proposalReceivingProfileId ===
+                timeline.context.currentProfiel?.id;
 
             return (
               <article
@@ -377,4 +389,3 @@ export default function TijdlijnPage() {
     </section>
   );
 }
-
