@@ -231,9 +231,17 @@ export default function DevLoginPage() {
                 </dd>
               </div>
               <div>
-                <dt>Huidig profiel</dt>
+                <dt>Eigen profiel</dt>
+                <dd>
+                  {context?.ownProfiel?.weergavenaam ??
+                    "Nog geen eigen profiel"}
+                </dd>
+              </div>
+              <div>
+                <dt>Bekeken profiel</dt>
                 <dd>
                   {context?.currentProfiel?.weergavenaam ??
+                    context?.ownProfiel?.weergavenaam ??
                     "Nog geen automatisch profiel"}
                 </dd>
               </div>

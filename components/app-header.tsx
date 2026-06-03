@@ -87,29 +87,27 @@ export function AppHeader() {
 
   const context =
     contextState.status === "ready" ? contextState.context : null;
-  const profileLabel =
-    context?.currentProfiel?.weergavenaam ??
+  const ownProfile = context?.ownProfiel ?? null;
+  const activeProfile = context?.currentProfiel ?? null;
+  const profileSummaryLabel =
+    ownProfile?.weergavenaam ??
     context?.persoon?.accountnaam ??
     context?.authUser?.email ??
     "Niet ingelogd";
-  const isOwnProfileActive =
-    context && context.ownProfiel && context.currentProfiel
+  const isViewingOwnProfile =
+    context?.ownProfiel && context?.currentProfiel
       ? context.currentProfiel.id === context.ownProfiel.id
       : false;
   const canSwitchProfile =
     contextState.status === "ready" && (context?.profielen.length ?? 0) > 1;
-  const readOnlyProfileHint = canSwitchProfile
-    ? !isOwnProfileActive
-      ? "Je kijkt als"
-      : "Eigen profiel"
-    : "Eenzelfde profiel actief";
-  const statusLabel = context?.authUser
-    ? context.currentProfiel
-      ? "Profiel actief"
-      : "Auth zonder profiel"
-    : contextState.status === "loading"
-      ? "Laden"
-      : "Gast";
+  const ownProfileLabel =
+    ownProfile?.weergavenaam ??
+    context?.persoon?.accountnaam ??
+    context?.authUser?.email ??
+    "Onbekend profiel";
+  const activeProfileLabel =
+    activeProfile?.weergavenaam ?? "Geen actief profiel";
+  const statusLabel = context?.authUser ? "Ingelogd" : "Gast";
 
   return (
     <header className="app-header">
@@ -126,19 +124,27 @@ export function AppHeader() {
       <div className="app-header__profile">
         <Link className="app-header__profile-summary" href="/beheer/dev-login">
           <span>{statusLabel}</span>
-          <strong>{profileLabel}</strong>
+          <strong>{profileSummaryLabel}</strong>
         </Link>
         {context?.authUser ? (
           <>
-            <p className="app-header__profile-mode">{readOnlyProfileHint}</p>
-            {context?.currentProfiel ? (
-              <p className="app-header__profile-mode-value">
-                {context.currentProfiel.weergavenaam}
-              </p>
+            <p className="app-header__profile-mode">
+              {ownProfile ? "Ingelogd profiel" : "Ingelogd profiel (beperkt)"}
+            </p>
+            <p className="app-header__profile-mode-value">{ownProfileLabel}</p>
+            {!isViewingOwnProfile ? (
+              <>
+                <p className="app-header__profile-mode">
+                  Bekijkt profiel
+                </p>
+                <p className="app-header__profile-mode-value">
+                  {activeProfileLabel}
+                </p>
+              </>
             ) : null}
             {canSwitchProfile ? (
               <label className="app-header__profile-switch">
-                <span>Bekijk vanuit</span>
+                <span>Bekijk als</span>
                 <select
                   onChange={(event) =>
                     handleProfileSelect(event.target.value)
