@@ -16,11 +16,9 @@ import {
 import {
   PLANNING_MOMENT_STATUSES,
   fetchPlanningFilterCategories,
-  fetchPlanningFilterGroups,
   fetchPlanningMoments,
   type PlanningCategoryOption,
   type PlanningFilterParams,
-  type PlanningGroupOption,
   type PlanningMoment
 } from "@/src/lib/planning/moments";
 import {
@@ -33,7 +31,6 @@ type PlanningFilterState = {
   categoryId: string;
   dateFrom: string;
   dateTo: string;
-  groupId: string;
   status: string;
 };
 
@@ -50,7 +47,6 @@ const DEFAULT_FILTERS: PlanningFilterState = {
   categoryId: "",
   dateFrom: "",
   dateTo: "",
-  groupId: "",
   status: ""
 };
 
@@ -106,7 +102,6 @@ function getFilterFromSearchParams(
     categoryId: params.get("category") ?? defaults.categoryId,
     dateFrom: params.get("from") ?? defaults.dateFrom,
     dateTo: params.get("to") ?? defaults.dateTo,
-    groupId: params.get("group") ?? defaults.groupId,
     status: status && isPlanningStatus(status) ? status : defaults.status
   };
 }
@@ -118,7 +113,6 @@ function mapUrlStateToQuery(
     categoryId: filters.categoryId || null,
     dateFrom: filters.dateFrom || null,
     dateTo: filters.dateTo || null,
-    groupId: filters.groupId || null,
     status: isPlanningStatus(filters.status) ? filters.status : null
   };
 }
@@ -154,7 +148,6 @@ function PlanningPageContent() {
   const [categoryOptions, setCategoryOptions] = useState<PlanningCategoryOption[]>(
     []
   );
-  const [groupOptions, setGroupOptions] = useState<PlanningGroupOption[]>([]);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -170,12 +163,6 @@ function PlanningPageContent() {
       params.set("category", nextFilters.categoryId);
     } else {
       params.delete("category");
-    }
-
-    if (nextFilters.groupId) {
-      params.set("group", nextFilters.groupId);
-    } else {
-      params.delete("group");
     }
 
     if (nextFilters.dateFrom) {
@@ -222,21 +209,16 @@ function PlanningPageContent() {
 
     async function loadFilterOptions() {
       try {
-        const [categories, groups] = await Promise.all([
-          fetchPlanningFilterCategories(),
-          fetchPlanningFilterGroups()
-        ]);
+        const categories = await fetchPlanningFilterCategories();
 
         if (!isMounted) {
           return;
         }
 
         setCategoryOptions(categories);
-        setGroupOptions(groups);
       } catch (error: unknown) {
         if (isMounted) {
           setCategoryOptions([]);
-          setGroupOptions([]);
         }
       }
     }
@@ -297,7 +279,6 @@ function PlanningPageContent() {
     Boolean(filters.dateFrom) ||
     Boolean(filters.dateTo) ||
     Boolean(filters.categoryId) ||
-    Boolean(filters.groupId) ||
     Boolean(filters.status);
 
   return (
@@ -333,20 +314,6 @@ function PlanningPageContent() {
             />
           </label>
           <label className="planning-filters__field">
-            <span>Groep</span>
-            <select
-              onChange={(event) => setFilter("groupId", event.target.value)}
-              value={filters.groupId}
-            >
-              <option value="">Alle groepen</option>
-              {groupOptions.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="planning-filters__field">
             <span>Categorie</span>
             <select
               onChange={(event) =>
@@ -362,6 +329,7 @@ function PlanningPageContent() {
               ))}
             </select>
           </label>
+          {/* TODO: tag filtering may be added later as a findability-only filter. */}
           <label className="planning-filters__field">
             <span>Status</span>
             <select

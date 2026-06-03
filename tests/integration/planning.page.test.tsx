@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PlanningPage from "@/app/planning/page";
 import {
   fetchPlanningFilterCategories,
-  fetchPlanningFilterGroups,
   fetchPlanningMoments,
   type PlanningMoment
 } from "@/src/lib/planning/moments";
@@ -31,8 +30,7 @@ vi.mock("@/src/lib/planning/moments", async (importOriginal) => {
   return {
     ...actual,
     fetchPlanningMoments: vi.fn(),
-    fetchPlanningFilterCategories: vi.fn(),
-    fetchPlanningFilterGroups: vi.fn()
+    fetchPlanningFilterCategories: vi.fn()
   };
 });
 
@@ -47,7 +45,6 @@ vi.mock("@/src/lib/dev/profile-context", () => ({
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
 const fetchPlanningMomentsMock = vi.mocked(fetchPlanningMoments);
 const fetchPlanningFilterCategoriesMock = vi.mocked(fetchPlanningFilterCategories);
-const fetchPlanningFilterGroupsMock = vi.mocked(fetchPlanningFilterGroups);
 
 function createPlanningMoment(overrides: Partial<PlanningMoment> = {}) {
   return {
@@ -70,11 +67,9 @@ beforeEach(() => {
   fetchCurrentSamzoContextMock.mockReset();
   fetchPlanningMomentsMock.mockReset();
   fetchPlanningFilterCategoriesMock.mockReset();
-  fetchPlanningFilterGroupsMock.mockReset();
   replaceMock.mockReset();
   searchParams.delete("from");
   searchParams.delete("to");
-  searchParams.delete("group");
   searchParams.delete("category");
   searchParams.delete("status");
 });
@@ -84,7 +79,6 @@ describe("Planning laden", () => {
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
     fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
-    fetchPlanningFilterGroupsMock.mockResolvedValue([]);
 
     render(<PlanningPage />);
 
@@ -98,7 +92,6 @@ describe("Planning laden", () => {
       categoryId: null,
       dateFrom: null,
       dateTo: null,
-      groupId: null,
       status: null
     });
   });
@@ -107,7 +100,6 @@ describe("Planning laden", () => {
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
     fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
-    fetchPlanningFilterGroupsMock.mockResolvedValue([]);
 
     render(<PlanningPage />);
 
@@ -128,32 +120,26 @@ describe("Planning laden", () => {
     );
   });
 
-  it("laadt gefilterde opties uit de status-, categorie- en groepkeuzes", async () => {
+  it("laadt gefilterde opties uit de status-, categorie- en datumkeuzes", async () => {
     const filteredMoment = createPlanningMoment({
       id: "moment-open-zondag",
       title: "Vrijwilligerswerk",
       categoryName: "Ontmoeting"
     });
     const categoryId = "cat-1";
-    const groupId = "groep-1";
 
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchPlanningFilterCategoriesMock.mockResolvedValue([
       { id: categoryId, name: "Ontmoeting" }
     ]);
-    fetchPlanningFilterGroupsMock.mockResolvedValue([{ id: groupId, name: "Zorgteam" }]);
     fetchPlanningMomentsMock.mockResolvedValue([filteredMoment]);
 
     render(<PlanningPage />);
 
     expect(await screen.findByLabelText("Categorie")).toBeInTheDocument();
-    expect(await screen.findByLabelText("Groep")).toBeInTheDocument();
 
     const categorySelect = screen.getByLabelText("Categorie");
     fireEvent.change(categorySelect, { target: { value: categoryId } });
-
-    const groupSelect = screen.getByLabelText("Groep");
-    fireEvent.change(groupSelect, { target: { value: groupId } });
 
     const dateFrom = screen.getByLabelText("Vanaf datum");
     fireEvent.change(dateFrom, { target: { value: "2026-06-04" } });
@@ -165,7 +151,6 @@ describe("Planning laden", () => {
       expect(fetchPlanningMomentsMock).toHaveBeenLastCalledWith(
         expect.objectContaining({
           categoryId,
-          groupId,
           dateFrom: "2026-06-04",
           dateTo: "2026-06-06",
           status: null
@@ -178,7 +163,6 @@ describe("Planning laden", () => {
     ).toBeInTheDocument();
     const [urlState, { scroll }] = replaceMock.mock.calls.at(-1) ?? ["", {}];
     expect(urlState).toContain("category=cat-1");
-    expect(urlState).toContain("group=groep-1");
     expect(urlState).toContain("from=2026-06-04");
     expect(urlState).toContain("to=2026-06-06");
     expect(scroll).toBe(false);
