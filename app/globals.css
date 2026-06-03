@@ -2164,6 +2164,109 @@ a {
   margin-top: 14px;
 }
 
+.tijdlijn-support-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-top: 24px;
+  padding: 20px;
+}
+
+.tijdlijn-support-form h2 {
+  font-size: 1.2rem;
+  margin: 0 0 12px;
+}
+
+.tijdlijn-support-form__form {
+  display: grid;
+  gap: 10px;
+}
+
+.tijdlijn-support-form__form label {
+  display: grid;
+  gap: 6px;
+}
+
+.tijdlijn-support-form__form input,
+.tijdlijn-support-form__form textarea {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.tijdlijn-support-form__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tijdlijn-support-form__actions small {
+  color: var(--muted);
+}
+
+.tijdlijn-card__support-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tijdlijn-card__support-actions button {
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.tijdlijn-card__support-summary {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.tijdlijn-card__support-summary dl {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: auto 1fr;
+}
+
+.tijdlijn-card__support-summary dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.tijdlijn-card__support-summary dd {
+  margin: 0;
+}
+
+.tijdlijn-card__support-summary p {
+  margin: 0;
+}
+
+.tijdlijn-card__support-reply-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tijdlijn-card__support-reply-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.tijdlijn-card__support-reply-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.tijdlijn-card__support-reply-form small {
+  color: var(--muted);
+}
+
 .dev-login-page {
   margin: 0 auto;
   max-width: 980px;

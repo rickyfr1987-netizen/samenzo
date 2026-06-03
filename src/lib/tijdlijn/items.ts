@@ -62,18 +62,49 @@ type LinkedMomentRow = Pick<
 type SupportQuestionRow = Pick<
   Tables<"supportvragen">,
   | "id"
+  | "aangemaakt_door_persoon_id"
   | "onderwerp"
   | "omschrijving"
   | "status"
   | "created_at"
   | "aangemaakt_vanuit_profiel_id"
+  | "updated_at"
 >;
+
+type SupportQuestionResponseRow = Pick<
+  Tables<"supportvraag_reacties">,
+  | "id"
+  | "supportvraag_id"
+  | "inhoud"
+  | "is_support_antwoord"
+  | "created_at"
+>;
+
+type SupportQuestionResponseSummary = {
+  responseCount: number;
+  hasSupportResponse: boolean;
+  latestResponse: {
+    id: string;
+    content: string;
+    isSupportResponse: boolean;
+    createdAt: string;
+  } | null;
+};
 
 export type TimelineItemSource =
   | "tijdlijnbericht"
   | "signaal"
   | "supportvraag"
   | "voorstel";
+
+export type TimelineSupportContext =
+  | { kind: "requesterContext"; profileId: string }
+  | { kind: "supportHandlerContext" }
+  | { kind: "viewedProfileContext"; profileId: string };
+
+type FetchVisibleTimelineItemsOptions = {
+  supportContext?: TimelineSupportContext;
+};
 
 type LinkedMomentProjection = {
   id: string;
@@ -98,6 +129,10 @@ export type TimelineItem = {
   targetGroupId: string | null;
   proposalId: string | null;
   proposalReceivingProfileId: string | null;
+  hasSupportResponse?: boolean;
+  supportVraagCreatorPersonId?: string | null;
+  supportResponseCount?: number | null;
+  latestSupportResponse?: SupportQuestionResponseSummary["latestResponse"];
   related:
     | {
         type: string;
@@ -106,8 +141,28 @@ export type TimelineItem = {
     | null;
 };
 
-export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
+export async function fetchVisibleTimelineItems(
+  options: FetchVisibleTimelineItemsOptions = {}
+): Promise<TimelineItem[]> {
   const supabase = getSupabaseBrowserClient();
+  const supportvragenQuery = supabase
+    .from("supportvragen")
+    .select(
+      "id, aangemaakt_door_persoon_id, onderwerp, omschrijving, status, created_at, updated_at, aangemaakt_vanuit_profiel_id"
+    )
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (
+    options.supportContext?.kind === "requesterContext" ||
+    options.supportContext?.kind === "viewedProfileContext"
+  ) {
+    supportvragenQuery.eq(
+      "aangemaakt_vanuit_profiel_id",
+      options.supportContext.profileId
+    );
+  }
+
   const [messagesResult, signalsResult, supportResult, proposalsResult] =
     await Promise.all([
       supabase
@@ -115,7 +170,7 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
         .select(
           "id, type, status, titel, inhoud, urgent, created_at, gericht_aan_profiel_id, gericht_aan_groep_id, gekoppeld_type, gekoppeld_id, supportvraag_id, signaal_id"
         )
-        .is("archived_at", null)
+        .is("supportvraag_id", null)
         .or(
           `zichtbaar_vanaf_at.is.null,zichtbaar_vanaf_at.lte.${new Date().toISOString()}`
         )
@@ -123,18 +178,14 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
-      .from("signalen")
+        .from("signalen")
         .select(
           "id, niveau, status, titel, omschrijving, created_at, gericht_aan_profiel_id, gericht_aan_groep_id, gekoppeld_type, gekoppeld_id"
         )
         .is("archived_at", null)
         .order("created_at", { ascending: false })
         .limit(50),
-      supabase
-      .from("supportvragen")
-        .select("id, onderwerp, omschrijving, status, created_at, aangemaakt_vanuit_profiel_id")
-        .order("created_at", { ascending: false })
-        .limit(50),
+      supportvragenQuery,
       supabase
         .from("voorstellen")
         .select(
@@ -162,6 +213,10 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
   }
 
   const proposals = (proposalsResult.data ?? []) as VoorstelRow[];
+  const supportvragen = (supportResult.data ?? []) as SupportQuestionRow[];
+  const supportResponseSummaries =
+    await fetchSupportVraagResponseSummaries(supportvragen);
+
   const linkedMomentIds = [
     ...new Set(
       proposals
@@ -174,7 +229,13 @@ export async function fetchVisibleTimelineItems(): Promise<TimelineItem[]> {
   return [
     ...((messagesResult.data ?? []) as TimelineMessageRow[]).map(mapTimelineMessage),
     ...((signalsResult.data ?? []) as SignalRow[]).map(mapSignal),
-    ...((supportResult.data ?? []) as SupportQuestionRow[]).map(mapSupportQuestion),
+    ...supportvragen.map((question) =>
+      mapSupportQuestion(
+        question,
+        supportResponseSummaries.get(question.id) ?? null,
+        options.supportContext
+      )
+    ),
     ...proposals.map((proposal) => mapVoorstel(proposal, linkedMoments))
   ].sort(sortTimelineItems);
 }
@@ -192,6 +253,8 @@ function mapTimelineMessage(message: TimelineMessageRow): TimelineItem {
     targetGroupId: message.gericht_aan_groep_id,
     proposalId: null,
     proposalReceivingProfileId: null,
+    supportResponseCount: null,
+    latestSupportResponse: null,
     related: getRelated({
       linkedType: message.gekoppeld_type,
       linkedId: message.gekoppeld_id,
@@ -214,6 +277,8 @@ function mapSignal(signal: SignalRow): TimelineItem {
     targetGroupId: signal.gericht_aan_groep_id,
     proposalId: null,
     proposalReceivingProfileId: null,
+    supportResponseCount: null,
+    latestSupportResponse: null,
     related: getRelated({
       linkedType: signal.gekoppeld_type,
       linkedId: signal.gekoppeld_id
@@ -221,17 +286,27 @@ function mapSignal(signal: SignalRow): TimelineItem {
   };
 }
 
-function mapSupportQuestion(question: SupportQuestionRow): TimelineItem {
+function mapSupportQuestion(
+  question: SupportQuestionRow,
+  responseSummary: SupportQuestionResponseSummary | null,
+  supportContext: TimelineSupportContext | undefined
+): TimelineItem {
+  const visibleAt = question.updated_at ?? question.created_at;
+
   return {
     id: question.id,
     source: "supportvraag",
     title: question.onderwerp,
     body: question.omschrijving,
     status: question.status,
-    urgency: getSupportUrgency(question.status),
+    urgency: getSupportUrgency(question.status, responseSummary, supportContext),
+    createdAt: visibleAt,
     targetProfileId: question.aangemaakt_vanuit_profiel_id,
     targetGroupId: null,
-    createdAt: question.created_at,
+    supportVraagCreatorPersonId: question.aangemaakt_door_persoon_id ?? null,
+    hasSupportResponse: responseSummary?.hasSupportResponse ?? false,
+    supportResponseCount: responseSummary?.responseCount ?? 0,
+    latestSupportResponse: responseSummary?.latestResponse ?? null,
     proposalId: null,
     proposalReceivingProfileId: null,
     related: null
@@ -262,6 +337,8 @@ function mapVoorstel(
     proposalReceivingProfileId: voorstel.ontvangend_profiel_id,
     targetProfileId: null,
     targetGroupId: null,
+    supportResponseCount: null,
+    latestSupportResponse: null,
     related: getRelated({
       linkedType: voorstel.gekoppeld_type,
       linkedId: voorstel.gekoppeld_id
@@ -297,9 +374,36 @@ function getRelated({
   return null;
 }
 
-function getSupportUrgency(status: Tables<"supportvragen">["status"]) {
-  if (status === "actie_nodig") {
+function getSupportUrgency(
+  status: Tables<"supportvragen">["status"],
+  responseSummary: SupportQuestionResponseSummary | null,
+  supportContext: TimelineSupportContext | undefined
+) {
+  if (status === "gesloten" || status === "afgehandeld") {
+    return null;
+  }
+
+  if (supportContext?.kind === "supportHandlerContext") {
+    if (
+      status === "nieuw" ||
+      (status === "actie_nodig" &&
+        responseSummary?.latestResponse?.isSupportResponse !== true)
+    ) {
+      return "actie_nodig";
+    }
+  }
+
+  if (
+    (supportContext?.kind === "requesterContext" ||
+      supportContext?.kind === "viewedProfileContext") &&
+    (status === "actie_nodig" || status === "in_behandeling") &&
+    responseSummary?.hasSupportResponse
+  ) {
     return "actie_nodig";
+  }
+
+  if (status === "in_behandeling") {
+    return "in_behandeling";
   }
 
   return null;
@@ -322,7 +426,12 @@ function getPriority(item: TimelineItem) {
     return 4;
   }
 
-  if (item.urgency === "actie_nodig" || item.status === "actie_nodig") {
+  if (
+    item.urgency === "actie_nodig" ||
+    item.urgency === "in_behandeling" ||
+    item.status === "actie_nodig" ||
+    item.status === "in_behandeling"
+  ) {
     return 3;
   }
 
@@ -377,4 +486,53 @@ async function fetchLinkedMomentsForProposals(
   });
 
   return map;
+}
+
+async function fetchSupportVraagResponseSummaries(
+  supportvragen: SupportQuestionRow[]
+): Promise<Map<string, SupportQuestionResponseSummary>> {
+  if (!supportvragen.length) {
+    return new Map<string, SupportQuestionResponseSummary>();
+  }
+
+  const supabase = getSupabaseBrowserClient();
+  const supportVraagIds = supportvragen.map((supportvraag) => supportvraag.id);
+  const { data, error } = await supabase
+    .from("supportvraag_reacties")
+    .select("id, supportvraag_id, inhoud, is_support_antwoord, created_at")
+    .in("supportvraag_id", supportVraagIds)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const summaries = new Map<string, SupportQuestionResponseSummary>();
+  (data ?? []).forEach((row) => {
+    const response = row as SupportQuestionResponseRow;
+    const current =
+      summaries.get(response.supportvraag_id) ??
+      {
+        responseCount: 0,
+        hasSupportResponse: false,
+        latestResponse: null
+      };
+
+    current.responseCount += 1;
+    current.hasSupportResponse ||= response.is_support_antwoord;
+
+    if (!current.latestResponse) {
+      current.latestResponse = {
+        id: response.id,
+        content: response.inhoud,
+        isSupportResponse: response.is_support_antwoord,
+        createdAt: response.created_at
+      };
+    }
+
+    summaries.set(response.supportvraag_id, current);
+  });
+
+  return summaries;
 }
