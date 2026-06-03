@@ -104,6 +104,8 @@ const getSupabaseBrowserClientMock = vi.mocked(getSupabaseBrowserClient);
 describe("AppHeader profielswitchgedrag", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchCurrentSamzoContextMock.mockReset();
+    writeStoredActiveProfileIdMock.mockReset();
     const onAuthStateChange = vi.fn(() => ({
       data: { subscription: { unsubscribe: vi.fn() } }
     }));
@@ -164,10 +166,80 @@ describe("AppHeader profielswitchgedrag", () => {
     expect(screen.getAllByText("Ingelogd profiel")).toHaveLength(1);
     expect(screen.getAllByText("Bas Beheerder").length).toBeGreaterThan(1);
     expect(screen.getByText("Bekijkt profiel")).toBeInTheDocument();
-    expect((await screen.findAllByText("Milan Medewerker")).length).toBeGreaterThan(1);
+    expect(
+      (await screen.findAllByText("Milan Medewerker")).length
+    ).toBeGreaterThan(1);
     expect(sharedAuthContext.authUser.id).toBe(switchedAuthContext.authUser.id);
     expect(
       screen.queryByText(switchedAuthContext.persoon.auth_user_id)
+    ).not.toBeInTheDocument();
+  });
+
+  it("houdt het ingelogde profiel stabiel wanneer bekeken profiel wisselt", async () => {
+    const user = userEvent.setup();
+    const ownFirst = createContext({
+      ownProfiel: basProfile,
+      profielen: [basProfile, milanProfile],
+      currentProfiel: basProfile
+    });
+    const switched = createContext({
+      ownProfiel: basProfile,
+      profielen: [basProfile, milanProfile],
+      currentProfiel: milanProfile
+    });
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(ownFirst);
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(switched);
+
+    const { container } = render(<AppHeader />);
+    const switcher = await screen.findByRole("combobox", {
+      name: "Bekijk als"
+    });
+    await user.selectOptions(switcher, milanProfile.id);
+
+    const profileModeValues = container.querySelectorAll(
+      ".app-header__profile-mode-value"
+    );
+    expect(profileModeValues.length).toBe(2);
+    expect(profileModeValues[0]).toHaveTextContent("Bas Beheerder");
+    expect(profileModeValues[1]).toHaveTextContent("Milan Medewerker");
+  });
+
+  it("verbergt 'Bekijkt profiel' wanneer de eigen actieve profiel bekeken wordt", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(
+      createContext({
+        ownProfiel: basProfile,
+        profielen: [basProfile, milanProfile],
+        currentProfiel: basProfile
+      })
+    );
+
+    render(<AppHeader />);
+
+    expect(screen.queryByText("Bekijkt profiel")).not.toBeInTheDocument();
+  });
+
+  it("toont alleen de toegestane profielen in de profielselector voor medewerker", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(
+      createContext({
+        ownProfiel: milanProfile,
+        profielen: [milanProfile, samProfile],
+        currentProfiel: milanProfile
+      })
+    );
+
+    render(<AppHeader />);
+
+    const switcher = await screen.findByRole("combobox", {
+      name: "Bekijk als"
+    });
+    const options = Array.from(switcher.querySelectorAll("option"));
+
+    expect(options).toHaveLength(2);
+    expect(screen.getByRole("option", { name: "Milan Medewerker" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sam Bewoner" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Sanne Systeemondersteuner" })
     ).not.toBeInTheDocument();
   });
 
@@ -184,12 +256,48 @@ describe("AppHeader profielswitchgedrag", () => {
 
     expect(
       (await screen.findAllByText("Gijs Gast")).length
-    ).toBeGreaterThan(0);
+    ).toBeGreaterThan(1);
     expect(screen.getByText("Ingelogd profiel")).toBeInTheDocument();
     expect(
       screen.queryByRole("combobox", { name: "Bekijk als" })
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Medewerkers")).not.toBeInTheDocument();
     expect(screen.queryByText("Bewoners")).not.toBeInTheDocument();
+  });
+
+  it("verbergt technische accountvelden in profielcontextweergave", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(
+      createContext({
+        ownProfiel: gijsProfile,
+        profielen: [gijsProfile],
+        currentProfiel: gijsProfile
+      })
+    );
+
+    render(<AppHeader />);
+
+    expect(
+      (await screen.findAllByText("Gijs Gast")).length
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("auth-main")).not.toBeInTheDocument();
+    expect(screen.queryByText("link-auth-main")).not.toBeInTheDocument();
+  });
+
+  it("handelt ontbrekende actieve profielselectie rustig af", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce({
+      ...createContext({
+        ownProfiel: basProfile,
+        profielen: [basProfile],
+        currentProfiel: basProfile
+      }),
+      currentProfiel: null
+    });
+
+    render(<AppHeader />);
+
+    expect(await screen.findByText("Ingelogd profiel")).toBeInTheDocument();
+    expect(await screen.findByText("Bekijkt profiel")).toBeInTheDocument();
+    expect(await screen.findByText("Geen actief profiel")).toBeInTheDocument();
+    expect((await screen.findAllByText("Bas Beheerder")).length).toBeGreaterThan(1);
   });
 });

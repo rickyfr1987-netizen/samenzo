@@ -54,12 +54,17 @@ function createAuthMock(sessionUserId: string) {
 }
 
 const getSupabaseBrowserClientMock = vi.mocked(getSupabaseBrowserClient);
+const getItemSpy = vi.spyOn(window.localStorage, "getItem");
+const setItemSpy = vi.spyOn(window.localStorage, "setItem");
+const removeItemSpy = vi.spyOn(window.localStorage, "removeItem");
 
 describe("current-context helper", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    vi.restoreAllMocks();
-    vi.spyOn(window.localStorage, "getItem").mockReturnValue(null);
+    vi.clearAllMocks();
+    getItemSpy.mockReturnValue(null);
+    setItemSpy.mockReturnValue(undefined);
+    removeItemSpy.mockReturnValue(undefined);
   });
 
   it("selecteert eigen profiel automatisch als standaard actief profiel", async () => {
@@ -153,6 +158,56 @@ describe("current-context helper", () => {
     ]);
   });
 
+  it("valt terug op eigen profiel als opgeslagen actieve profiel-id onbekend is", async () => {
+    const ownProfile = createProfile({
+      id: "10000000-0000-4000-8000-000000000004",
+      weergavenaam: "Sam Bewoner"
+    });
+    const extraProfile = createProfile({
+      id: "10000000-0000-4000-8000-000000000001",
+      weergavenaam: "Bas Beheerder"
+    });
+
+    getItemSpy.mockReturnValue("10000000-0000-4000-8000-000000000099");
+
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(
+          createQueryMock({
+            data: {
+              id: "00000000-0000-4000-8000-000000000004",
+              auth_user_id: "auth-sam",
+              email: "sam.bewoner@example.test",
+              accountnaam: "Sam Bewoner",
+              systeemrol: "lid",
+              status: "actief"
+            },
+            error: null
+          })
+        )
+        .mockReturnValueOnce(createQueryMock({ data: ownProfile, error: null }))
+        .mockReturnValueOnce(
+          createQueryMock({
+            data: [{ profiel_id: extraProfile.id }],
+            error: null
+          })
+        )
+        .mockReturnValueOnce(
+          createQueryMock({
+            data: [ownProfile, extraProfile],
+            error: null
+          })
+        ),
+      ...createAuthMock("auth-sam")
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const context = await fetchCurrentSamzoContext();
+
+    expect(context.currentProfiel?.id).toBe(ownProfile.id);
+    expect(removeItemSpy).not.toHaveBeenCalled();
+  });
+
   it("houdt medewerkertoegang beperkt tot de expliciet beschikbare profielen", async () => {
     const medewerkerProfile = createProfile({
       id: "10000000-0000-4000-8000-000000000003",
@@ -206,6 +261,8 @@ describe("current-context helper", () => {
   });
 
   it("handelt ontbrekende toegang rustig af wanneer alleen auth context aanwezig is", async () => {
+    getItemSpy.mockReturnValue(null);
+
     getSupabaseBrowserClientMock.mockReturnValue({
       from: vi.fn().mockReturnValueOnce(
         createQueryMock({
