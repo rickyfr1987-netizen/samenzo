@@ -11,6 +11,7 @@ import {
   fetchVisibleProfielen,
   type VisibleLid
 } from "@/src/lib/leden/items";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type LedenState =
   | { status: "loading" }
@@ -49,6 +50,7 @@ export default function LedenPage() {
   const [state, setState] = useState<LedenState>({
     status: "loading"
   });
+  const activeProfileId = useActiveProfileSwitchTrigger();
 
   useEffect(() => {
     let isMounted = true;
@@ -87,7 +89,7 @@ export default function LedenPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeProfileId]);
 
   const context = state.status === "ready" ? state.context : null;
 
