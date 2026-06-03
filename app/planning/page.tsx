@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+
+export const dynamic = "force-dynamic";
 
 import {
   DEVELOPMENT_PROFILES,
@@ -11,7 +14,13 @@ import {
   writeStoredDevelopmentProfileId
 } from "@/src/lib/dev/profile-context";
 import {
+  PLANNING_MOMENT_STATUSES,
+  fetchPlanningFilterCategories,
+  fetchPlanningFilterGroups,
   fetchPlanningMoments,
+  type PlanningCategoryOption,
+  type PlanningFilterParams,
+  type PlanningGroupOption,
   type PlanningMoment
 } from "@/src/lib/planning/moments";
 import {
@@ -19,6 +28,14 @@ import {
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
 import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
+
+type PlanningFilterState = {
+  categoryId: string;
+  dateFrom: string;
+  dateTo: string;
+  groupId: string;
+  status: string;
+};
 
 type PlanningState =
   | { status: "loading" }
@@ -28,6 +45,14 @@ type PlanningState =
       moments: PlanningMoment[];
     }
   | { status: "error"; message: string };
+
+const DEFAULT_FILTERS: PlanningFilterState = {
+  categoryId: "",
+  dateFrom: "",
+  dateTo: "",
+  groupId: "",
+  status: ""
+};
 
 const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
   dateStyle: "medium",
@@ -62,7 +87,51 @@ function formatStatus(status: PlanningMoment["status"]) {
   return status.replaceAll("_", " ");
 }
 
+function isPlanningStatus(
+  value: string | null
+): value is PlanningMoment["status"] {
+  return (
+    typeof value === "string" &&
+    PLANNING_MOMENT_STATUSES.includes(value as PlanningMoment["status"])
+  );
+}
+
+function getFilterFromSearchParams(
+  params: Readonly<URLSearchParams>,
+  defaults: PlanningFilterState
+): PlanningFilterState {
+  const status = params.get("status");
+
+  return {
+    categoryId: params.get("category") ?? defaults.categoryId,
+    dateFrom: params.get("from") ?? defaults.dateFrom,
+    dateTo: params.get("to") ?? defaults.dateTo,
+    groupId: params.get("group") ?? defaults.groupId,
+    status: status && isPlanningStatus(status) ? status : defaults.status
+  };
+}
+
+function mapUrlStateToQuery(
+  filters: PlanningFilterState
+): PlanningFilterParams {
+  return {
+    categoryId: filters.categoryId || null,
+    dateFrom: filters.dateFrom || null,
+    dateTo: filters.dateTo || null,
+    groupId: filters.groupId || null,
+    status: isPlanningStatus(filters.status) ? filters.status : null
+  };
+}
+
 export default function PlanningPage() {
+  return (
+    <Suspense fallback={<p className="planning-state">Planning wordt geladen...</p>}>
+      <PlanningPageContent />
+    </Suspense>
+  );
+}
+
+function PlanningPageContent() {
   const [planning, setPlanning] = useState<PlanningState>({
     status: "loading"
   });
@@ -74,11 +143,110 @@ export default function PlanningPage() {
         : null
     );
 
-  const developmentProfileContextEnabled =
-    isDevelopmentProfileContextEnabled();
+  const developmentProfileContextEnabled = isDevelopmentProfileContextEnabled();
   const selectedDevelopmentProfile = getDevelopmentProfileById(
     selectedDevelopmentProfileId
   );
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<PlanningFilterState>(() =>
+    getFilterFromSearchParams(searchParams, DEFAULT_FILTERS)
+  );
+  const [categoryOptions, setCategoryOptions] = useState<PlanningCategoryOption[]>(
+    []
+  );
+  const [groupOptions, setGroupOptions] = useState<PlanningGroupOption[]>([]);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const planningFilterParams = useMemo(
+    () => mapUrlStateToQuery(filters),
+    [filters]
+  );
+
+  function syncFiltersToUrl(nextFilters: PlanningFilterState) {
+    const params = new URLSearchParams(searchParams);
+
+    if (nextFilters.categoryId) {
+      params.set("category", nextFilters.categoryId);
+    } else {
+      params.delete("category");
+    }
+
+    if (nextFilters.groupId) {
+      params.set("group", nextFilters.groupId);
+    } else {
+      params.delete("group");
+    }
+
+    if (nextFilters.dateFrom) {
+      params.set("from", nextFilters.dateFrom);
+    } else {
+      params.delete("from");
+    }
+
+    if (nextFilters.dateTo) {
+      params.set("to", nextFilters.dateTo);
+    } else {
+      params.delete("to");
+    }
+
+    if (nextFilters.status) {
+      params.set("status", nextFilters.status);
+    } else {
+      params.delete("status");
+    }
+
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, {
+      scroll: false
+    });
+  }
+
+  function setFilter<K extends keyof PlanningFilterState>(
+    key: K,
+    value: PlanningFilterState[K]
+  ) {
+    setFilters((current) => {
+      if (current[key] === value) {
+        return current;
+      }
+
+      const next = { ...current, [key]: value };
+      syncFiltersToUrl(next);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFilterOptions() {
+      try {
+        const [categories, groups] = await Promise.all([
+          fetchPlanningFilterCategories(),
+          fetchPlanningFilterGroups()
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCategoryOptions(categories);
+        setGroupOptions(groups);
+      } catch (error: unknown) {
+        if (isMounted) {
+          setCategoryOptions([]);
+          setGroupOptions([]);
+        }
+      }
+    }
+
+    loadFilterOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProfileId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -87,11 +255,15 @@ export default function PlanningPage() {
       try {
         const [authContext, moments] = await Promise.all([
           fetchCurrentSamzoContext(),
-          fetchPlanningMoments()
+          fetchPlanningMoments(planningFilterParams)
         ]);
 
         if (isMounted) {
-          setPlanning({ status: "ready", context: authContext, moments });
+          setPlanning({
+            status: "ready",
+            context: authContext,
+            moments
+          });
         }
       } catch (error: unknown) {
         if (isMounted) {
@@ -111,7 +283,7 @@ export default function PlanningPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeProfileId]);
+  }, [activeProfileId, planningFilterParams]);
 
   function handleDevelopmentProfileChange(profileId: string) {
     const nextProfileId = profileId || null;
@@ -121,6 +293,12 @@ export default function PlanningPage() {
   }
 
   const context = planning.status === "ready" ? planning.context : null;
+  const hasActiveFilter =
+    Boolean(filters.dateFrom) ||
+    Boolean(filters.dateTo) ||
+    Boolean(filters.categoryId) ||
+    Boolean(filters.groupId) ||
+    Boolean(filters.status);
 
   return (
     <section className="planning-page">
@@ -132,6 +310,74 @@ export default function PlanningPage() {
           hier ziet komt rechtstreeks door de bestaande RLS-regels.
         </p>
       </div>
+
+      <section className="planning-filters" aria-label="Planning filters">
+        <h2 className="planning-filters__heading">Filters</h2>
+        <div className="planning-filters__row">
+          <label className="planning-filters__field">
+            <span>Vanaf datum</span>
+            <input
+              onChange={(event) =>
+                setFilter("dateFrom", event.target.value)
+              }
+              type="date"
+              value={filters.dateFrom}
+            />
+          </label>
+          <label className="planning-filters__field">
+            <span>Tot en met datum</span>
+            <input
+              onChange={(event) => setFilter("dateTo", event.target.value)}
+              type="date"
+              value={filters.dateTo}
+            />
+          </label>
+          <label className="planning-filters__field">
+            <span>Groep</span>
+            <select
+              onChange={(event) => setFilter("groupId", event.target.value)}
+              value={filters.groupId}
+            >
+              <option value="">Alle groepen</option>
+              {groupOptions.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="planning-filters__field">
+            <span>Categorie</span>
+            <select
+              onChange={(event) =>
+                setFilter("categoryId", event.target.value)
+              }
+              value={filters.categoryId}
+            >
+              <option value="">Alle categorieën</option>
+              {categoryOptions.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="planning-filters__field">
+            <span>Status</span>
+            <select
+              onChange={(event) => setFilter("status", event.target.value)}
+              value={filters.status}
+            >
+              <option value="">Alle statussen</option>
+              {PLANNING_MOMENT_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {formatStatus(status)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
 
       {developmentProfileContextEnabled ? (
         <section
@@ -170,11 +416,7 @@ export default function PlanningPage() {
           <dl className="planning-dev-panel__facts">
             <div>
               <dt>Supabase Auth</dt>
-              <dd>
-                {context?.authUser
-                  ? "Aangemeld"
-                  : "Niet aangemeld"}
-              </dd>
+              <dd>{context?.authUser ? "Aangemeld" : "Niet aangemeld"}</dd>
             </div>
             <div>
               <dt>Huidig profiel</dt>
@@ -221,9 +463,9 @@ export default function PlanningPage() {
         <div className="planning-state">
           <h2>Geen zichtbare momenten</h2>
           <p>
-            RLS geeft geen momenten terug voor deze Auth sessie. Controleer of
-            de ingelogde Supabase gebruiker is gekoppeld aan
-            personen.auth_user_id en minstens een actief profiel heeft.
+            {hasActiveFilter
+              ? "Probeer een andere combinatie van filters; er zijn geen momenten binnen deze selectie."
+              : "RLS geeft geen momenten terug voor deze Auth sessie. Controleer of de ingelogde Supabase gebruiker is gekoppeld aan personen.auth_user_id en minstens een actief profiel heeft."}
           </p>
         </div>
       ) : null}
@@ -242,9 +484,7 @@ export default function PlanningPage() {
                   <span>{formatStatus(moment.status)}</span>
                 </div>
                 <h2>{moment.title}</h2>
-                <p className="planning-card__time">
-                  {formatMomentTime(moment)}
-                </p>
+                <p className="planning-card__time">{formatMomentTime(moment)}</p>
                 {moment.location ? (
                   <p className="planning-card__location">{moment.location}</p>
                 ) : null}
