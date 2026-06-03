@@ -35,6 +35,7 @@ export function createSamzoContext(
       user_metadata: {}
     } as User,
     currentProfiel: profiel,
+    ownProfiel: profiel,
     persoon,
     profielen: [profiel],
     ...overrides

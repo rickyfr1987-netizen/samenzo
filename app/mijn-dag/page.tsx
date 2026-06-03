@@ -262,6 +262,11 @@ export default function MijnDagPage() {
   }, [selectedDate]);
 
   const context = mijnDag.status === "ready" ? mijnDag.context : null;
+  const canActOnCurrentProfile = Boolean(
+    context?.currentProfiel &&
+      context?.ownProfiel &&
+      context.currentProfiel.id === context.ownProfiel.id
+  );
   const { start } = getLocalDayRange(selectedDate);
   const selectedDateValue = toDateInputValue(selectedDate);
 
@@ -277,6 +282,16 @@ export default function MijnDagPage() {
       setActionState({
         status: "error",
         message: "Je moet ingelogd zijn met een actief profiel.",
+        voorstelId: voorstel.id
+      });
+      return;
+    }
+
+    if (!canActOnCurrentProfile) {
+      setActionState({
+        status: "error",
+        message:
+          "Voorstelacties zijn tijdelijk alleen beschikbaar vanuit je eigen profiel.",
         voorstelId: voorstel.id
       });
       return;
@@ -444,6 +459,20 @@ export default function MijnDagPage() {
         </div>
       ) : null}
 
+      {mijnDag.status === "ready" &&
+      mijnDag.context.currentProfiel &&
+      !canActOnCurrentProfile &&
+      context?.ownProfiel ? (
+        <div className="mijn-dag-state mijn-dag-state--error">
+          <h2>Voorstelactie niet beschikbaar</h2>
+          <p>
+            Je bekijkt momenteel {mijnDag.context.currentProfiel.weergavenaam}.
+            Voorstellen accepteren/afwijzen is tijdelijk alleen actief voor je eigen
+            profiel: {context.ownProfiel.weergavenaam}.
+          </p>
+        </div>
+      ) : null}
+
       {mijnDag.status === "ready" && mijnDag.items.length > 0 ? (
         <div className="mijn-dag-grid">
           {mijnDag.items.map((item) => (
@@ -475,30 +504,38 @@ export default function MijnDagPage() {
 
               {item.proposal && item.proposal.canRespond ? (
                 <div className="mijn-dag-proposal-actions">
-                  <button
-                    onClick={() =>
-                      void handleProposalDecision("accept", item.proposal!)
-                    }
-                    disabled={
-                      actionState.status === "running" &&
-                      actionState.voorstelId === item.proposal.id
-                    }
-                    type="button"
-                  >
-                    Accepteren
-                  </button>
-                  <button
-                    onClick={() =>
-                      void handleProposalDecision("reject", item.proposal!)
-                    }
-                    disabled={
-                      actionState.status === "running" &&
-                      actionState.voorstelId === item.proposal.id
-                    }
-                    type="button"
-                  >
-                    Afwijzen
-                  </button>
+                  {canActOnCurrentProfile ? (
+                    <>
+                      <button
+                        onClick={() =>
+                          void handleProposalDecision("accept", item.proposal!)
+                        }
+                        disabled={
+                          actionState.status === "running" &&
+                          actionState.voorstelId === item.proposal.id
+                        }
+                        type="button"
+                      >
+                        Accepteren
+                      </button>
+                      <button
+                        onClick={() =>
+                          void handleProposalDecision("reject", item.proposal!)
+                        }
+                        disabled={
+                          actionState.status === "running" &&
+                          actionState.voorstelId === item.proposal.id
+                        }
+                        type="button"
+                      >
+                        Afwijzen
+                      </button>
+                    </>
+                  ) : (
+                    <p className="mijn-dag-state mijn-dag-state--error">
+                      Actie niet beschikbaar voor dit bekeken profiel.
+                    </p>
+                  )}
                 </div>
               ) : null}
             </article>

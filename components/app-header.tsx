@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   fetchCurrentSamzoContext,
+  writeStoredActiveProfileId,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
@@ -34,6 +35,14 @@ export function AppHeader() {
     const context = await fetchCurrentSamzoContext();
     setContextState({ status: "ready", context });
   }, []);
+
+  const handleProfileSelect = useCallback(
+    async (profileId: string) => {
+      writeStoredActiveProfileId(profileId || null);
+      await refreshContext();
+    },
+    [refreshContext]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -83,6 +92,17 @@ export function AppHeader() {
     context?.persoon?.accountnaam ??
     context?.authUser?.email ??
     "Niet ingelogd";
+  const isOwnProfileActive =
+    context && context.ownProfiel && context.currentProfiel
+      ? context.currentProfiel.id === context.ownProfiel.id
+      : false;
+  const canSwitchProfile =
+    contextState.status === "ready" && (context?.profielen.length ?? 0) > 1;
+  const readOnlyProfileHint = canSwitchProfile
+    ? !isOwnProfileActive
+      ? "Je kijkt als"
+      : "Eigen profiel"
+    : "Eenzelfde profiel actief";
   const statusLabel = context?.authUser
     ? context.currentProfiel
       ? "Profiel actief"
@@ -103,10 +123,43 @@ export function AppHeader() {
           </Link>
         ))}
       </nav>
-      <Link className="app-header__profile" href="/beheer/dev-login">
-        <span>{statusLabel}</span>
-        <strong>{profileLabel}</strong>
-      </Link>
+      <div className="app-header__profile">
+        <Link className="app-header__profile-summary" href="/beheer/dev-login">
+          <span>{statusLabel}</span>
+          <strong>{profileLabel}</strong>
+        </Link>
+        {context?.authUser ? (
+          <>
+            <p className="app-header__profile-mode">{readOnlyProfileHint}</p>
+            {context?.currentProfiel ? (
+              <p className="app-header__profile-mode-value">
+                {context.currentProfiel.weergavenaam}
+              </p>
+            ) : null}
+            {canSwitchProfile ? (
+              <label className="app-header__profile-switch">
+                <span>Bekijk vanuit</span>
+                <select
+                  onChange={(event) =>
+                    handleProfileSelect(event.target.value)
+                  }
+                  value={context.currentProfiel?.id ?? ""}
+                >
+                  {context.profielen.map((profiel) => (
+                    <option key={profiel.id} value={profiel.id}>
+                      {profiel.weergavenaam}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </>
+        ) : (
+          <p className="app-header__profile-mode">
+            Geen actief profiel beschikbaar
+          </p>
+        )}
+      </div>
       {contextState.status === "error" ? (
         <p className="app-header__error">{contextState.message}</p>
       ) : null}

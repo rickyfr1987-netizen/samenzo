@@ -34,6 +34,7 @@ import {
 } from "@/src/lib/moment/role-claims";
 import {
   fetchCurrentSamzoContext,
+  isOwnProfileActive,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
 
@@ -402,6 +403,15 @@ export default function MomentDetailPage() {
       return;
     }
 
+    if (!isOwnProfileActive(detailState.context)) {
+      setActionState({
+        status: "error",
+        message:
+          "Voorstelacties zijn alleen beschikbaar vanuit je eigen profiel."
+      });
+      return;
+    }
+
     setActionState({
       status: "running",
       message: "Voorstel accepteren..."
@@ -434,6 +444,15 @@ export default function MomentDetailPage() {
       setActionState({
         status: "error",
         message: "Deze afwijzingsactie kan niet worden voltooid."
+      });
+      return;
+    }
+
+    if (!isOwnProfileActive(detailState.context)) {
+      setActionState({
+        status: "error",
+        message:
+          "Voorstelacties zijn alleen beschikbaar vanuit je eigen profiel."
       });
       return;
     }
@@ -570,7 +589,10 @@ export default function MomentDetailPage() {
   const hasActionableProposal =
     detailState.status === "ready" &&
     activeProposal !== null &&
-    detailState.context.currentProfiel !== null;
+    detailState.context.currentProfiel !== null &&
+    isOwnProfileActive(detailState.context);
+  const canActOnCurrentProfile =
+    detailState.status === "ready" && isOwnProfileActive(detailState.context);
   const canRegister =
     detailState.status === "ready" &&
     Boolean(detailState.detail.moment?.registrationOpen) &&
@@ -793,6 +815,15 @@ export default function MomentDetailPage() {
                   Voorstel afwijzen
                 </button>
               </div>
+            ) : null}
+
+            {detailState.context.currentProfiel &&
+            !canActOnCurrentProfile &&
+            detailState.proposal ? (
+              <p className="moment-detail-action-note moment-detail-action-note--error">
+                Voorstelacties zijn tijdelijk alleen beschikbaar voor je eigen
+                profiel.
+              </p>
             ) : null}
 
             {actionState.message ? (

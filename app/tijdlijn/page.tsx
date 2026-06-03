@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   acceptVoorstel,
@@ -91,19 +91,27 @@ export default function TijdlijnPage() {
           fetchVisibleTimelineItems()
         ]);
 
-        if (isMounted) {
-          setTimeline({ status: "ready", context, items });
+        if (!isMounted) {
+          return;
         }
+
+        setTimeline({
+          status: "ready",
+          context,
+          items: context.currentProfiel ? items : []
+        });
       } catch (error: unknown) {
-        if (isMounted) {
-          setTimeline({
-            status: "error",
-            message:
-              error instanceof Error
-                ? "Tijdlijn kon niet worden geladen."
-                : "Onbekende fout tijdens het laden van de tijdlijn."
-          });
+        if (!isMounted) {
+          return;
         }
+
+        setTimeline({
+          status: "error",
+          message:
+            error instanceof Error
+              ? "Tijdlijn kon niet worden geladen."
+              : "Onbekende fout tijdens het laden van de tijdlijn."
+        });
       }
     }
 
@@ -114,13 +122,30 @@ export default function TijdlijnPage() {
     };
   }, []);
 
+  const context = timeline.status === "ready" ? timeline.context : null;
+  const canActOnCurrentProfile = useMemo(
+    () =>
+      Boolean(
+        context?.currentProfiel &&
+          context?.ownProfiel &&
+          context.currentProfiel.id === context.ownProfiel.id
+      ),
+    [context]
+  );
+
   async function refreshTimeline() {
     try {
-      const [context, items] = await Promise.all([
+      const [nextContext, items] = await Promise.all([
         fetchCurrentSamzoContext(),
         fetchVisibleTimelineItems()
       ]);
-      setTimeline({ status: "ready", context, items });
+
+      setTimeline({
+        status: "ready",
+        context: nextContext,
+        items: nextContext.currentProfiel ? items : []
+      });
+      setProposalActionState({ status: "idle", message: null, proposalId: null });
     } catch (error: unknown) {
       setTimeline({
         status: "error",
@@ -136,7 +161,7 @@ export default function TijdlijnPage() {
     actie: "accept" | "reject",
     item: TimelineItem
   ) {
-    if (timeline.status !== "ready" || !timeline.context.currentProfiel) {
+    if (timeline.status !== "ready" || !context || !context.currentProfiel) {
       setProposalActionState({
         status: "error",
         message: "Je moet ingelogd zijn met een actief profiel.",
@@ -154,7 +179,7 @@ export default function TijdlijnPage() {
       return;
     }
 
-    if (item.proposalReceivingProfileId !== timeline.context.currentProfiel.id) {
+    if (item.proposalReceivingProfileId !== context.currentProfiel.id) {
       setProposalActionState({
         status: "error",
         message: "Dit voorstel hoort niet bij het actieve profiel.",
@@ -163,28 +188,40 @@ export default function TijdlijnPage() {
       return;
     }
 
+    if (!canActOnCurrentProfile) {
+      setProposalActionState({
+        status: "error",
+        message:
+          "Voorstelacties zijn tijdelijk alleen beschikbaar vanuit je eigen profiel.",
+        proposalId: item.proposalId
+      });
+      return;
+    }
+
     setProposalActionState({
       status: "running",
       message:
-        actie === "accept" ? "Voorstel accepteren..." : "Voorstel afwijzen...",
+        actie === "accept"
+          ? "Voorstel accepteren..."
+          : "Voorstel afwijzen...",
       proposalId: item.proposalId
     });
 
     try {
       if (actie === "accept") {
-        if (!timeline.context.persoon) {
+        if (!context.persoon) {
           throw new Error("missing_persoon");
         }
 
         await acceptVoorstel({
           voorstelId: item.proposalId,
-          profielId: timeline.context.currentProfiel.id,
-          persoonId: timeline.context.persoon.id
+          profielId: context.currentProfiel.id,
+          persoonId: context.persoon.id
         });
       } else {
         await declineVoorstel({
           voorstelId: item.proposalId,
-          profielId: timeline.context.currentProfiel.id,
+          profielId: context.currentProfiel.id,
           persoonId: null
         });
       }
@@ -210,7 +247,14 @@ export default function TijdlijnPage() {
     }
   }
 
-  const context = timeline.status === "ready" ? timeline.context : null;
+  const hasVisibleOpenProposalForActiveProfile = timeline.status === "ready" &&
+    Boolean(context?.currentProfiel) &&
+    timeline.items.some(
+      (item) =>
+        item.source === "voorstel" &&
+        item.status === "open" &&
+        item.proposalReceivingProfileId === context?.currentProfiel?.id
+    );
 
   return (
     <section className="tijdlijn-page">
@@ -268,6 +312,18 @@ export default function TijdlijnPage() {
       ) : null}
 
       {timeline.status === "ready" &&
+      !canActOnCurrentProfile &&
+      hasVisibleOpenProposalForActiveProfile ? (
+        <div className="tijdlijn-state tijdlijn-state--error">
+          <h2>Geen actieve profielactie</h2>
+          <p>
+            Voorstelacties zijn op dit moment alleen beschikbaar voor je eigen
+            profiel.
+          </p>
+        </div>
+      ) : null}
+
+      {timeline.status === "ready" &&
       timeline.context.currentProfiel &&
       timeline.items.length === 0 ? (
         <div className="tijdlijn-state">
@@ -283,14 +339,14 @@ export default function TijdlijnPage() {
             const isProposalOpen =
               isProposal && item.proposalId !== null && item.status === "open";
             const proposalMomentId =
-              isProposal && item.related?.type === "moment"
-                ? item.related.id
-                : null;
+              isProposal && item.related?.type === "moment" ? item.related.id : null;
+            const proposalForActiveProfile =
+              isProposal &&
+              item.proposalReceivingProfileId === context?.currentProfiel?.id;
             const showProposalActions =
               isProposalOpen &&
-              proposalMomentId !== null &&
-              item.proposalReceivingProfileId ===
-                timeline.context.currentProfiel?.id;
+              proposalForActiveProfile &&
+              canActOnCurrentProfile;
 
             return (
               <article
@@ -322,11 +378,9 @@ export default function TijdlijnPage() {
                   <div>
                     <dt>Gekoppeld</dt>
                     <dd>
-                      {proposalMomentId
-                        ? `moment ${proposalMomentId}`
-                        : item.related
-                          ? `${formatStatus(item.related.type)} ${item.related.id}`
-                          : "Geen veilige koppeling zichtbaar"}
+                      {item.related
+                        ? `${formatStatus(item.related.type)} ${item.related.id}`
+                        : "Geen veilige koppeling zichtbaar"}
                     </dd>
                   </div>
                 </dl>
@@ -338,6 +392,14 @@ export default function TijdlijnPage() {
                   >
                     Open moment
                   </Link>
+                ) : null}
+
+                {proposalForActiveProfile &&
+                isProposalOpen &&
+                !canActOnCurrentProfile ? (
+                  <p className="tijdlijn-state tijdlijn-state--error">
+                    Voorstelacties zijn alleen zichtbaar voor het eigen profiel.
+                  </p>
                 ) : null}
 
                 {showProposalActions ? (
