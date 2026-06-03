@@ -7,7 +7,11 @@
     "build": "node ./node_modules/next/dist/bin/next build",
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:ci": "npm run typecheck && npm run lint && npm run test:unit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -16,12 +20,19 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^6.0.2",
     "eslint": "latest",
     "eslint-config-next": "latest",
+    "jsdom": "^29.1.1",
     "supabase": "^2.103.0",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vitest": "^4.1.8"
   }
 }
