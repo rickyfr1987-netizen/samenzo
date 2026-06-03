@@ -20,6 +20,7 @@ import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type MijnDagProposalCardItem = MijnDagItem & {
   proposal: VoorstelItem | null;
@@ -218,6 +219,7 @@ export default function MijnDagPage() {
   });
   const [today] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const activeProfileId = useActiveProfileSwitchTrigger();
 
   async function loadMijnDag(date: Date) {
     try {
@@ -259,7 +261,7 @@ export default function MijnDagPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate]);
+  }, [selectedDate, activeProfileId]);
 
   const context = mijnDag.status === "ready" ? mijnDag.context : null;
   const canActOnCurrentProfile = Boolean(

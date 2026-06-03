@@ -15,6 +15,7 @@ import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type TimelineState =
   | { status: "loading" }
@@ -74,6 +75,7 @@ export default function TijdlijnPage() {
   const [timeline, setTimeline] = useState<TimelineState>({
     status: "loading"
   });
+  const activeProfileId = useActiveProfileSwitchTrigger();
   const [proposalActionState, setProposalActionState] =
     useState<ProposalActionState>({
       status: "idle",
@@ -120,7 +122,7 @@ export default function TijdlijnPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeProfileId]);
 
   const context = timeline.status === "ready" ? timeline.context : null;
   const canActOnCurrentProfile = useMemo(

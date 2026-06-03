@@ -12,6 +12,7 @@ import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type DocumentenState =
   | { status: "loading" }
@@ -26,6 +27,7 @@ export default function DocumentenPage() {
   const [documenten, setDocumenten] = useState<DocumentenState>({
     status: "loading"
   });
+  const activeProfileId = useActiveProfileSwitchTrigger();
 
   useEffect(() => {
     let isMounted = true;
@@ -63,7 +65,7 @@ export default function DocumentenPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeProfileId]);
 
   const context = documenten.status === "ready" ? documenten.context : null;
 

@@ -4,6 +4,7 @@ import type { Tables } from "@/src/lib/database.types";
 import type { User } from "@supabase/supabase-js";
 
 export const ACTIVE_PROFILE_STORAGE_KEY = "samzo.activeProfileId";
+export const ACTIVE_PROFILE_CHANGED_EVENT = "samzo:activeProfileChanged";
 
 export type CurrentSamzoPersoon = Pick<
   Tables<"personen">,
@@ -47,10 +48,16 @@ export function writeStoredActiveProfileId(profileId: string | null) {
 
   if (profileId) {
     window.localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, profileId);
+    window.dispatchEvent(
+      new CustomEvent(ACTIVE_PROFILE_CHANGED_EVENT, { detail: { profileId } })
+    );
     return;
   }
 
   window.localStorage.removeItem(ACTIVE_PROFILE_STORAGE_KEY);
+  window.dispatchEvent(
+    new CustomEvent(ACTIVE_PROFILE_CHANGED_EVENT, { detail: { profileId: null } })
+  );
 }
 
 function deduplicateProfiles(

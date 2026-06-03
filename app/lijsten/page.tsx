@@ -11,6 +11,7 @@ import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type LijstenState =
   | { status: "loading" }
@@ -54,6 +55,7 @@ export default function LijstenPage() {
   const [lijsten, setLijsten] = useState<LijstenState>({
     status: "loading"
   });
+  const activeProfileId = useActiveProfileSwitchTrigger();
 
   useEffect(() => {
     let isMounted = true;
@@ -86,7 +88,7 @@ export default function LijstenPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeProfileId]);
 
   const context = lijsten.status === "ready" ? lijsten.context : null;
 

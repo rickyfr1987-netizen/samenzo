@@ -13,6 +13,7 @@ import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type DoelenState =
   | { status: "loading" }
@@ -52,6 +53,7 @@ export default function DoelenPage() {
   const [state, setState] = useState<DoelenState>({
     status: "loading"
   });
+  const activeProfileId = useActiveProfileSwitchTrigger();
 
   useEffect(() => {
     let isMounted = true;
@@ -84,7 +86,7 @@ export default function DoelenPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeProfileId]);
 
   const context = state.status === "ready" ? state.context : null;
 

@@ -18,6 +18,7 @@ import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
 
 type PlanningState =
   | { status: "loading" }
@@ -65,6 +66,7 @@ export default function PlanningPage() {
   const [planning, setPlanning] = useState<PlanningState>({
     status: "loading"
   });
+  const activeProfileId = useActiveProfileSwitchTrigger();
   const [selectedDevelopmentProfileId, setSelectedDevelopmentProfileId] =
     useState<string | null>(() =>
       isDevelopmentProfileContextEnabled()
@@ -109,7 +111,7 @@ export default function PlanningPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeProfileId]);
 
   function handleDevelopmentProfileChange(profileId: string) {
     const nextProfileId = profileId || null;
