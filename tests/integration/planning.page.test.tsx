@@ -72,6 +72,7 @@ beforeEach(() => {
   searchParams.delete("to");
   searchParams.delete("category");
   searchParams.delete("status");
+  window.localStorage.clear();
 });
 
 describe("Planning laden", () => {
@@ -96,6 +97,25 @@ describe("Planning laden", () => {
     });
   });
 
+  it("toont geen zichtbare groepsfilter voor reguliere gebruikers", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
+
+    render(<PlanningPage />);
+
+    expect(await screen.findByRole("heading", { name: "Zwemmen test" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Groep" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Tag" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Tags" })
+    ).not.toBeInTheDocument();
+  });
+
   it("laadt momenten met statusfilter uit de filterset", async () => {
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
@@ -118,6 +138,164 @@ describe("Planning laden", () => {
         })
       )
     );
+  });
+
+  it("update de datumfilter en querystatus in de URL", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
+
+    render(<PlanningPage />);
+
+    const fromDate = await screen.findByLabelText("Vanaf datum");
+    fireEvent.change(fromDate, { target: { value: "2026-06-04" } });
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("/planning?from=2026-06-04", {
+        scroll: false
+      })
+    );
+    await waitFor(() =>
+      expect(fetchPlanningMomentsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          dateFrom: "2026-06-04",
+          dateTo: null,
+          categoryId: null,
+          status: null
+        })
+      )
+    );
+  });
+
+  it("ververst de planning na profielwissel en herlaadt zichtbare momenten", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(
+      createSamzoContext({
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          weergavenaam: "Bas Beheerder",
+          id: "10000000-0000-4000-8000-000000000001"
+        }
+      })
+    );
+    fetchCurrentSamzoContextMock.mockResolvedValueOnce(
+      createSamzoContext({
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          weergavenaam: "Milan Medewerker",
+          id: "10000000-0000-4000-8000-000000000003"
+        }
+      })
+    );
+    fetchPlanningMomentsMock.mockResolvedValueOnce([
+      createPlanningMoment({
+        id: "moment-bas",
+        title: "Open rolsessie"
+      })
+    ]);
+    fetchPlanningMomentsMock.mockResolvedValueOnce([
+      createPlanningMoment({
+        id: "moment-milan",
+        title: "Milan moment"
+      })
+    ]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
+
+    window.localStorage.setItem(
+      "samzo.activeProfileId",
+      "10000000-0000-4000-8000-000000000001"
+    );
+
+    render(<PlanningPage />);
+
+    expect(await screen.findByRole("heading", { name: "Open rolsessie" })).toBeInTheDocument();
+    expect(fetchCurrentSamzoContextMock).toHaveBeenCalledTimes(1);
+    expect(fetchPlanningMomentsMock).toHaveBeenCalledTimes(1);
+
+    window.localStorage.setItem(
+      "samzo.activeProfileId",
+      "10000000-0000-4000-8000-000000000003"
+    );
+    window.dispatchEvent(new Event("samzo:activeProfileChanged"));
+
+    expect(await screen.findByRole("heading", { name: "Milan moment" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchCurrentSamzoContextMock).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(fetchPlanningMomentsMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("toont een rustige lege staat bij filters zonder resultaten", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchPlanningMomentsMock.mockResolvedValueOnce([createPlanningMoment()]);
+    fetchPlanningMomentsMock.mockResolvedValueOnce([]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([
+      { id: "cat-empty", name: "Lege test" }
+    ]);
+
+    render(<PlanningPage />);
+
+    const categorySelect = await screen.findByLabelText("Categorie");
+    fireEvent.change(categorySelect, { target: { value: "cat-empty" } });
+
+    await waitFor(() => {
+      expect(fetchPlanningMomentsMock).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() =>
+      expect(screen.getByText("Geen zichtbare momenten")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByText(
+        "Probeer een andere combinatie van filters; er zijn geen momenten binnen deze selectie."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("reset filterherstel terug naar standaard zonder queryparameters", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchPlanningMomentsMock.mockResolvedValue([
+      createPlanningMoment()
+    ]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([
+      { id: "cat-open", name: "Open" }
+    ]);
+
+    render(<PlanningPage />);
+
+    const categorySelect = await screen.findByLabelText("Categorie");
+    fireEvent.change(categorySelect, { target: { value: "cat-open" } });
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/planning?category=cat-open",
+        { scroll: false }
+      );
+    });
+
+    fireEvent.change(categorySelect, { target: { value: "" } });
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/planning", { scroll: false });
+    });
+  });
+
+  it("linkt planningkaart naar detailpagina", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
+
+    render(<PlanningPage />);
+
+    const planningLinks = await screen.findAllByRole("link");
+    const titleLink = planningLinks.find(
+      (link) => link.getAttribute("href") === "/planning/moment-zwemmen"
+    );
+
+    expect(titleLink).toBeDefined();
+    if (titleLink) {
+      expect(titleLink).toHaveAttribute("href", "/planning/moment-zwemmen");
+    }
   });
 
   it("laadt gefilterde opties uit de status-, categorie- en datumkeuzes", async () => {
@@ -165,8 +343,72 @@ describe("Planning laden", () => {
     expect(urlState).toContain("category=cat-1");
     expect(urlState).toContain("from=2026-06-04");
     expect(urlState).toContain("to=2026-06-06");
+    expect(urlState).not.toContain("group=");
     expect(scroll).toBe(false);
     expect(replaceMock).toHaveBeenCalled();
     expect(replaceMock).not.toHaveBeenCalledWith("/planning", { scroll: false });
+  });
+
+  it("verbergt verborgen technische internals en auth_user_id in de planningpagina", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createSamzoContext({
+        persoon: {
+          ...createSamzoContext().persoon!,
+          auth_user_id: "auth-internal-token"
+        }
+      })
+    );
+    fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
+
+    render(<PlanningPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Zwemmen test" })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("auth-internal-token")).not.toBeInTheDocument();
+    expect(screen.queryByText("auth-sam")).not.toBeInTheDocument();
+  });
+
+  it("toont geen interne groepscontext bij gast-achtige restricties in filterweergave", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createSamzoContext({
+        persoon: {
+          ...createSamzoContext().persoon!,
+          auth_user_id: "guest-token"
+        },
+        ownProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          id: "10000000-0000-4000-8000-000000000005",
+          weergavenaam: "Gijs Gast"
+        },
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          id: "10000000-0000-4000-8000-000000000005",
+          weergavenaam: "Gijs Gast"
+        },
+        profielen: [
+          {
+            ...createSamzoContext().currentProfiel!,
+            id: "10000000-0000-4000-8000-000000000005",
+            weergavenaam: "Gijs Gast"
+          }
+        ]
+      })
+    );
+    fetchPlanningMomentsMock.mockResolvedValue([createPlanningMoment()]);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue([]);
+
+    render(<PlanningPage />);
+
+    expect(await screen.findByRole("heading", { name: "Zwemmen test" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("Alle groepen")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Groep" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Medewerkers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bewoners")).not.toBeInTheDocument();
   });
 });
