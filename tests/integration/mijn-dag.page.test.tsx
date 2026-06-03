@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import MijnDagPage from "@/app/mijn-dag/page";
@@ -124,6 +124,193 @@ describe("Mijn dag overzicht", () => {
     );
   });
 
+  it("toont een rustige lege staat wanneer geen activiteiten aanwezig zijn", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(await screen.findByRole("heading", { name: "Geen activiteiten" }))
+      .toBeInTheDocument();
+    expect(
+      screen.getByText("Er staat niets in deze dag voor dit profiel.")
+    ).toBeInTheDocument();
+  });
+
+  it("toont een geaccepteerde deelname als persoonlijke activiteit", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([
+      {
+        categoryName: "Dagactiviteiten",
+        description: "Vrijdagmiddag in het park.",
+        endsAt: currentDayIsoAt(10),
+        id: "moment-accepted",
+        isAllDay: false,
+        location: "Park",
+        reasons: [
+          {
+            label: "Deelname",
+            status: "geaccepteerd",
+            type: "deelname"
+          }
+        ],
+        startsAt: currentDayIsoAt(9),
+        status: "geaccepteerd",
+        title: "Wandeling met Sam"
+      }
+    ]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Wandeling met Sam" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Deelname: geaccepteerd")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accepteren" })).not.toBeInTheDocument();
+  });
+
+  it("toont rolbezetting op een momentkaart", async () => {
+    const startsAt = currentDayIsoAt(9);
+
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([
+      {
+        categoryName: "Dagactiviteiten",
+        description: "Rolgericht moment.",
+        endsAt: currentDayIsoAt(10),
+        id: "moment-role",
+        isAllDay: false,
+        location: "Gemeenschapszaal",
+        reasons: [
+          {
+            label: "Begeleider",
+            status: "actief",
+            type: "rolbezetting"
+          }
+        ],
+        startsAt,
+        status: "open",
+        title: "Begeleid groepsmoment"
+      }
+    ]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    const card = await screen.findByRole("heading", {
+      name: "Begeleid groepsmoment"
+    }).then((heading) => heading.closest("article"));
+    if (!card) {
+      throw new Error("Mijn dag card not found");
+    }
+
+    expect(within(card).getByText("Begeleider: actief")).toBeInTheDocument();
+    expect(screen.queryByText("Deelname")).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("heading", { name: "Begeleid groepsmoment" })
+    ).toHaveLength(1);
+  });
+
+  it("toont een geclaimde taak op de gekozen dag als persoonlijk item", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([
+      {
+        assigneeStatus: "actief",
+        description: "Bereid medicatiebak voor.",
+        endsAt: null,
+        id: "taak-claimed",
+        isAllDay: false,
+        listId: "lijst-1",
+        listTitle: "Dagtaken",
+        location: null,
+        reasons: [{ label: "Taak", status: "actief", type: "taak" }],
+        startsAt: currentDayIsoAt(9),
+        status: "open",
+        title: "Medicatie klaarzetten",
+        categoryName: "Daglijst"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Medicatie klaarzetten" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Taak: actief")).toBeInTheDocument();
+    expect(screen.getByText("Taak")).toBeInTheDocument();
+  });
+
+  it("toont een niet-geclaimde taak niet als persoonlijke activiteit", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(await screen.findByRole("heading", { name: "Geen activiteiten" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Niet-geclaimde taak" })).not.toBeInTheDocument();
+  });
+
+  it("toont een geweigerde proposal niet als open persoonlijke momentactie", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([
+      {
+        acceptedAt: null,
+        canRespond: false,
+        createdAt: "2026-06-03T08:00:00.000Z",
+        declinedAt: "2026-06-03T08:30:00.000Z",
+        explanation: "Voorstel is afgewezen.",
+        id: "voorstel-rejected",
+        linkedId: "moment-missing",
+        linkedMoment: null,
+        linkedType: "moment",
+        status: "geweigerd",
+        title: "Afgewezen voorstel",
+        type: "deelname_aan_moment",
+        updatedAt: null
+      }
+    ]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(await screen.findByRole("heading", { name: "Geen activiteiten" }))
+      .toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Afgewezen voorstelmoment" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("toont geen technische auth_user_id in de ui", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(await screen.findByRole("heading", { name: "Geen activiteiten" }))
+      .toBeInTheDocument();
+    expect(screen.queryByText("auth-sam")).not.toBeInTheDocument();
+    expect(screen.queryByText("link-auth-sam")).not.toBeInTheDocument();
+  });
+
   it("toont een taak op de geselecteerde datum met taskcontext", async () => {
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchMijnDagItemsMock.mockResolvedValue([]);
@@ -243,14 +430,52 @@ describe("Mijn dag overzicht", () => {
 
     fetchCurrentSamzoContextMock.mockResolvedValueOnce(samContext);
     fetchCurrentSamzoContextMock.mockResolvedValueOnce(milanContext);
-    fetchMijnDagItemsMock.mockResolvedValue([]);
-    fetchMijnDagItemsMock.mockResolvedValue([]);
-    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
-    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
-    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
-    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
-    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
-    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+    fetchMijnDagItemsMock.mockResolvedValueOnce([
+      {
+        categoryName: "Dagactiviteiten",
+        description: "Sam route",
+        endsAt: currentDayIsoAt(10),
+        id: "route-sam",
+        isAllDay: false,
+        location: "Wandeling",
+        reasons: [
+          {
+            label: "Deelname",
+            status: "geaccepteerd",
+            type: "deelname"
+          }
+        ],
+        startsAt: currentDayIsoAt(9),
+        status: "open",
+        title: "Wandel route"
+      }
+    ]);
+    fetchMijnDagItemsMock.mockResolvedValueOnce([
+      {
+        categoryName: "Dagactiviteiten",
+        description: "Milan route",
+        endsAt: currentDayIsoAt(12),
+        id: "route-milan",
+        isAllDay: false,
+        location: "Tuin",
+        reasons: [
+          {
+            label: "Deelname",
+            status: "voorgesteld",
+            type: "rolbezetting"
+          }
+        ],
+        startsAt: currentDayIsoAt(11),
+        status: "open",
+        title: "Milan route"
+      }
+    ]);
+    fetchMijnDagTaskItemsMock.mockResolvedValueOnce([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValueOnce([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValueOnce([]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValueOnce([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValueOnce([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValueOnce([]);
 
     render(<MijnDagPage />);
 
@@ -281,5 +506,11 @@ describe("Mijn dag overzicht", () => {
       2,
       MILAN_PROFILE_ID
     );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Milan route" }))
+        .toBeInTheDocument();
+    });
+    expect(screen.queryByText("Wandel route")).not.toBeInTheDocument();
   });
 });
