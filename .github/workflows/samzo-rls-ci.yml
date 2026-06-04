@@ -2,9 +2,12 @@ name: SAM&ZO RLS CI
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fase-1b-ci-rls-proof
   pull_request:
     branches:
-      - main
+      - fase-1b-ci-rls-proof
 
 permissions:
   contents: read
