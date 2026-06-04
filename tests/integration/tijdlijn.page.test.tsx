@@ -135,6 +135,27 @@ function createSanneContextViewingSam() {
   });
 }
 
+function createUnrelatedProfileContext(overrides: Partial<CurrentSamzoPersoon> = {}) {
+  const base = createSamzoContext();
+  const basePersoon = base.persoon as CurrentSamzoPersoon;
+
+  return createSamzoContext({
+    persoon: {
+      ...basePersoon,
+      id: "00000000-0000-4000-8000-000000001234",
+      auth_user_id: "auth-unrelated",
+      email: "vreemd@example.test",
+      accountnaam: "Onbevoegde Gebruiker",
+      ...overrides
+    },
+    currentProfiel: createSamzoProfile({
+      id: "10000000-0000-4000-8000-000000001234",
+      weergavenaam: "Onbevoegde gebruiker",
+      persoon_id: "00000000-0000-4000-8000-000000001234"
+    })
+  });
+}
+
 beforeEach(() => {
   fetchCurrentSamzoContextMock.mockReset();
   fetchVisibleTimelineItemsMock.mockReset();
@@ -623,6 +644,153 @@ describe("Tijdlijn voorstelknoppen", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Markeer afgehandeld" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("blijft één supportvraag tonen als praktische actie, ook met vervolgreacties", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSupportContext("lid"));
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      createSupportTimelineItem({
+        id: "support-shared",
+        status: "actie_nodig",
+        supportResponseCount: 2,
+        latestSupportResponse: {
+          id: "resp-9",
+          content: "Tussenstand",
+          isSupportResponse: true,
+          createdAt: "2026-06-03T11:00:00.000Z"
+        }
+      })
+    ]);
+
+    render(<TijdlijnPage />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Geen ondersteuning voor tablet"
+      })
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(screen.getAllByText("Geen ondersteuning voor tablet")).toHaveLength(1);
+    expect(screen.queryAllByRole("button", { name: "Reageren" })).toHaveLength(1);
+  });
+
+  it("Sanne is in verzoeken-beheerperspectief zichtbaar wanneer zij haar eigen profiel bekijkt", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createSanneContextViewingSanne()
+    );
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      createSupportTimelineItem({
+        id: "support-san",
+        status: "actie_nodig",
+        targetProfileId: SANNE_PROFILE_ID,
+        supportVraagCreatorPersonId: SANNE_PERSOON_ID,
+        supportResponseCount: 0
+      })
+    ]);
+
+    render(<TijdlijnPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Geen ondersteuning voor tablet" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reageren" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ik heb nog een vraag")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Dit is opgelost" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("Sanne ziet Sanne-support context niet in Sam-profiel en kan niet reageren als vreemde profieltoegang", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createSanneContextViewingSam()
+    );
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      createSupportTimelineItem({
+        id: "support-sam-viewed-private",
+        targetProfileId: SAM_PROFILE_ID,
+        supportVraagCreatorPersonId: SAM_PERSOON_ID,
+        supportResponseCount: 1,
+        hasSupportResponse: true,
+        latestSupportResponse: {
+          id: "resp-9",
+          content: "Support reageerde net.",
+          isSupportResponse: true,
+          createdAt: "2026-06-03T10:00:00.000Z"
+        }
+      })
+    ]);
+
+    render(<TijdlijnPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Geen ondersteuning voor tablet" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Markeer afgehandeld" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Antwoord toevoegen" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Dit is opgelost" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reageren" })).not.toBeInTheDocument();
+  });
+
+  it("onverwachte gebruiker met actief eigen profiel ziet een supportvraag niet als actioneerbaar", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createUnrelatedProfileContext({
+        systeemrol: "lid"
+      })
+    );
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      createSupportTimelineItem({
+        id: "support-private",
+        targetProfileId: SAM_PROFILE_ID,
+        supportVraagCreatorPersonId: SAM_PERSOON_ID
+      })
+    ]);
+
+    render(<TijdlijnPage />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Geen ondersteuning voor tablet"
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Dit is opgelost" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Markeer actie nodig" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reageren" })).not.toBeInTheDocument();
+  });
+
+  it("toont geen interne account-id of auth_user_id in supporttijdlijn output", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createUnrelatedProfileContext({
+        auth_user_id: "auth-secret-token"
+      })
+    );
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      createSupportTimelineItem({
+        id: "support-no-id",
+        title: "Tablet fout",
+        status: "actie_nodig",
+        targetProfileId: "10000000-0000-4000-8000-000000001234"
+      })
+    ]);
+
+    render(<TijdlijnPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Tablet fout" })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("auth-secret-token")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("10000000-0000-4000-8000-000000001234")
     ).not.toBeInTheDocument();
   });
 });
