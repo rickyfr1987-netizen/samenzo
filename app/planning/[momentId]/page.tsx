@@ -37,6 +37,14 @@ import {
   isOwnProfileActive,
   type CurrentSamzoContext
 } from "@/src/lib/samzo/current-context";
+import { useActiveProfileSwitchTrigger } from "@/src/lib/samzo/profile-switch-events";
+import {
+  archiveBegeleidingsnotitie,
+  createBegeleidingsnotitieForMoment,
+  type Begeleidingsnotitie,
+  fetchBegeleidingsnotitiesForMoment,
+  updateBegeleidingsnotitie
+} from "@/src/lib/begeleidingsnotities/items";
 
 type MomentDetailState =
   | { status: "loading" }
@@ -46,6 +54,7 @@ type MomentDetailState =
       detail: MomentDetailData;
       linkedLists: VisibleLijst[];
       proposal: VoorstelItem | null;
+      begeleidingsnotities: Begeleidingsnotitie[];
     }
   | { status: "error"; message: string };
 
@@ -64,6 +73,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
 
 const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
   dateStyle: "medium"
+});
+
+const noteDateFormatter = new Intl.DateTimeFormat("nl-NL", {
+  dateStyle: "medium",
+  timeStyle: "short"
 });
 
 function formatDateTime(
@@ -94,6 +108,14 @@ function formatStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+function formatNoteDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return noteDateFormatter.format(new Date(value));
+}
+
 const ROLE_BLOCKING_PARTICIPATION_STATUSES: MomentDetailParticipation["status"][] =
   [
     "voorgesteld",
@@ -109,6 +131,14 @@ const ROLE_BLOCKING_CLAIM_MESSAGE =
   "Je kunt deze rol nog niet claimen omdat je deelname nog niet actief is.";
 const ROLE_REQUIRES_ACTIVE_PARTICIPATION_MESSAGE =
   "Je kunt deze rol claimen zodra je actief deelneemt aan dit moment.";
+
+function canManageBegeleidingsnotities(context: CurrentSamzoContext | null) {
+  return (
+    context?.persoon?.systeemrol !== "gast" &&
+    (context?.persoon?.systeemrol === "medewerker" ||
+      context?.persoon?.systeemrol === "systeembeheerder")
+  );
+}
 
 function isRoleBlockingParticipationStatus(
   status: MomentDetailParticipation["status"]
@@ -204,6 +234,7 @@ export default function MomentDetailPage() {
 
     return Array.isArray(value) ? value[0] : value;
   }, [params.momentId]);
+  const activeProfileId = useActiveProfileSwitchTrigger();
   const [detailState, setDetailState] = useState<MomentDetailState>({
     status: "loading"
   });
@@ -211,6 +242,9 @@ export default function MomentDetailPage() {
     status: "idle",
     message: null
   });
+  const [noteDraft, setNoteDraft] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState("");
 
   const loadMomentDetail = useCallback(async () => {
     if (!momentId) {
@@ -221,10 +255,11 @@ export default function MomentDetailPage() {
       return;
     }
 
-    const [context, detail, linkedLists] = await Promise.all([
+    const [context, detail, linkedLists, begeleidingsnotities] = await Promise.all([
       fetchCurrentSamzoContext(),
       fetchMomentDetail(momentId),
-      fetchLijstenForMoment(momentId)
+      fetchLijstenForMoment(momentId),
+      fetchBegeleidingsnotitiesForMoment(momentId)
     ]);
 
     const proposal =
@@ -240,8 +275,12 @@ export default function MomentDetailPage() {
       context,
       detail,
       linkedLists,
-      proposal
+      proposal,
+      begeleidingsnotities
     });
+    setNoteDraft("");
+    setEditingNoteId(null);
+    setEditingNoteDraft("");
   }, [momentId]);
 
   useEffect(() => {
@@ -268,7 +307,7 @@ export default function MomentDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [momentId, loadMomentDetail]);
+  }, [momentId, activeProfileId, loadMomentDetail]);
 
   async function refreshMomentDetail(successMessage?: string) {
     try {
@@ -284,6 +323,159 @@ export default function MomentDetailPage() {
           error instanceof Error
             ? "Vernieuwen van het moment is niet gelukt."
             : "Vernieuwen van het moment is niet gelukt."
+      });
+    }
+  }
+
+  async function handleCreateBegeleidingsnotitie() {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.persoon ||
+      !detailState.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Notities kan je alleen toevoegen met een actief profiel."
+      });
+      return;
+    }
+
+    if (!canManageBegeleidingsnotities(detailState.context)) {
+      setActionState({
+        status: "error",
+        message:
+          "Je hebt geen rechten om begeleidingsnotities voor dit moment toe te voegen."
+      });
+      return;
+    }
+
+    const inhoud = noteDraft.trim();
+    if (!inhoud) {
+      setActionState({
+        status: "error",
+        message: "Vul eerst de tekst van de begeleidingsnotitie in."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Begeleidingsnotitie wordt opgeslagen..."
+    });
+
+    try {
+      await createBegeleidingsnotitieForMoment({
+        momentId,
+        personId: detailState.context.persoon.id,
+        inhoud,
+        betrokkenProfielId: detailState.context.currentProfiel.id,
+        zichtbaarVoorRoltype: null
+      });
+      setNoteDraft("");
+      await refreshMomentDetail("Begeleidingsnotitie is opgeslagen.");
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Opslaan van de begeleidingsnotitie is niet gelukt."
+      });
+    }
+  }
+
+  async function handleUpdateBegeleidingsnotitie() {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.context.persoon ||
+      !editingNoteId
+    ) {
+      setActionState({
+        status: "error",
+        message: "Bijwerken van deze begeleidingsnotitie is niet mogelijk."
+      });
+      return;
+    }
+
+    if (!canManageBegeleidingsnotities(detailState.context)) {
+      setActionState({
+        status: "error",
+        message:
+          "Je hebt geen rechten om deze begeleidingsnotitie bij te werken."
+      });
+      return;
+    }
+
+    const inhoud = editingNoteDraft.trim();
+    if (!inhoud) {
+      setActionState({
+        status: "error",
+        message: "De begeleidingsnotitie mag niet leeg zijn."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Begeleidingsnotitie wordt bijgewerkt..."
+    });
+
+    try {
+      await updateBegeleidingsnotitie({
+        noteId: editingNoteId,
+        persoonId: detailState.context.persoon.id,
+        inhoud
+      });
+      setEditingNoteId(null);
+      setEditingNoteDraft("");
+      await refreshMomentDetail("Begeleidingsnotitie is bijgewerkt.");
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Bijwerken van de begeleidingsnotitie is niet gelukt."
+      });
+    }
+  }
+
+  async function handleArchiveBegeleidingsnotitie(noteId: string) {
+    if (detailState.status !== "ready" || !detailState.context.persoon) {
+      setActionState({
+        status: "error",
+        message: "Archiveren van deze begeleidingsnotitie is niet mogelijk."
+      });
+      return;
+    }
+
+    if (!canManageBegeleidingsnotities(detailState.context)) {
+      setActionState({
+        status: "error",
+        message:
+          "Je hebt geen rechten om deze begeleidingsnotitie te archiveren."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Begeleidingsnotitie wordt gearchiveerd..."
+    });
+
+    try {
+      await archiveBegeleidingsnotitie({
+        noteId,
+        persoonId: detailState.context.persoon.id
+      });
+      await refreshMomentDetail("Begeleidingsnotitie is gearchiveerd.");
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Archiveren van de begeleidingsnotitie is niet gelukt."
       });
     }
   }
@@ -625,6 +817,13 @@ export default function MomentDetailPage() {
   const regularActiveParticipants = activeParticipants.filter(
     (participation) => !activeRoleProfileIds.has(participation.profileId)
   );
+  const canManageNotes =
+    detailState.status === "ready" &&
+    canManageBegeleidingsnotities(detailState.context);
+  const momentBegeleidingsnotities =
+    detailState.status === "ready"
+      ? detailState.begeleidingsnotities
+      : [];
 
   return (
     <section className="moment-detail-page">
@@ -1056,6 +1255,127 @@ export default function MomentDetailPage() {
                             type="button"
                           >
                             Rol vrijgeven
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section
+            className="moment-detail-section"
+            aria-labelledby="moment-begeleidingsnotities-heading"
+          >
+            <h2 id="moment-begeleidingsnotities-heading">
+              Begeleidingsnotities
+            </h2>
+            <p className="moment-detail-action-note">
+              Begeleidingsnotities zijn interne context-notities en geen
+              documenten.
+            </p>
+
+            {canManageNotes ? (
+              <form
+                className="moment-detail-notes-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleCreateBegeleidingsnotitie();
+                }}
+              >
+                <label htmlFor="moment-note-content">
+                  <span>Nieuwe begeleidingsnotitie</span>
+                  <textarea
+                    id="moment-note-content"
+                    value={noteDraft}
+                    onChange={(event) => setNoteDraft(event.target.value)}
+                    placeholder="Korte begeleidingsnotitie toevoegen..."
+                    rows={4}
+                  />
+                </label>
+                <div className="moment-detail-actions moment-detail-actions--role">
+                  <button
+                    type="submit"
+                    disabled={
+                      actionState.status === "running" ||
+                      noteDraft.trim().length === 0
+                    }
+                  >
+                    Notitie opslaan
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {momentBegeleidingsnotities.length === 0 ? (
+              <p className="moment-detail-empty">Geen actieve notities.</p>
+            ) : (
+              <div className="moment-detail-list">
+                {momentBegeleidingsnotities.map((note) => {
+                  const isEditing = editingNoteId === note.id;
+
+                  return (
+                    <article className="moment-detail-mini-card" key={note.id}>
+                      <div className="moment-detail-mini-card__meta">
+                        <span>Begeleiding</span>
+                        <span>{formatStatus(note.status)}</span>
+                      </div>
+                      <p>{formatNoteDate(note.updatedAt)}</p>
+                      {isEditing ? (
+                        <label htmlFor={`edit-note-${note.id}`}>
+                          <span>Notitie aanpassen</span>
+                          <textarea
+                            id={`edit-note-${note.id}`}
+                            value={editingNoteDraft}
+                            onChange={(event) =>
+                              setEditingNoteDraft(event.target.value)
+                            }
+                            rows={4}
+                          />
+                        </label>
+                      ) : (
+                        <p>{note.inhoud}</p>
+                      )}
+                      {canManageNotes ? (
+                        <div className="moment-detail-actions moment-detail-actions--role">
+                          {!isEditing ? (
+                            <button
+                              onClick={() => {
+                                setEditingNoteId(note.id);
+                                setEditingNoteDraft(note.inhoud);
+                              }}
+                              type="button"
+                            >
+                              Bewerken
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => void handleUpdateBegeleidingsnotitie()}
+                                disabled={actionState.status === "running"}
+                                type="button"
+                              >
+                                Opslaan
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingNoteId(null);
+                                  setEditingNoteDraft("");
+                                }}
+                                type="button"
+                              >
+                                Annuleren
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => void handleArchiveBegeleidingsnotitie(note.id)}
+                            disabled={actionState.status === "running"}
+                            type="button"
+                          >
+                            Archiveren
                           </button>
                         </div>
                       ) : null}
