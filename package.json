@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run",
+    "test:rls": "supabase test db --local supabase/tests/database",
     "test:e2e": "playwright test",
     "test:ci": "npm run typecheck && npm run lint && npm run test:unit"
   },

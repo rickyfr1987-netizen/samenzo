@@ -1,0 +1,120 @@
+name: SAM&ZO RLS CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: samzo-rls-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rls-ci:
+    name: Typecheck, Vitest and local Supabase RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      CI: true
+      DO_NOT_TRACK: "1"
+      SUPABASE_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: "2.103.0"
+
+      - name: Show tool versions
+        run: |
+          node --version
+          npm --version
+          supabase --version
+          npx supabase --version
+          docker version
+          docker info --format 'Server={{.ServerVersion}}; OSType={{.OSType}}; Driver={{.Driver}}'
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Vitest
+        run: npm run test
+
+      - name: Start local Supabase
+        shell: bash
+        run: |
+          set +e
+          output="$(supabase start 2>&1)"
+          status=$?
+          printf '%s\n' "$output" | perl -pe 's#postgresql://[^\s]+@#postgresql://[REDACTED]@#g; s#(anon key|service_role key|jwt secret|s3 access key|s3 secret key|database url|db url|api key|secret key|access token|publishable key)(\s*[:=]\s*).*$#$1$2[REDACTED]#i; s#eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+#[JWT_REDACTED]#g; s#sb_secret_[A-Za-z0-9_-]+#[SECRET_KEY_REDACTED]#g; s#sb_publishable_[A-Za-z0-9_-]+#[PUBLISHABLE_KEY_REDACTED]#g;'
+          exit "$status"
+
+      - name: Show local Supabase containers
+        run: docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+
+      - name: Reset local Supabase database
+        shell: bash
+        run: |
+          set +e
+          output="$(supabase db reset --local 2>&1)"
+          status=$?
+          printf '%s\n' "$output" | perl -pe 's#postgresql://[^\s]+@#postgresql://[REDACTED]@#g; s#(anon key|service_role key|jwt secret|s3 access key|s3 secret key|database url|db url|api key|secret key|access token|publishable key)(\s*[:=]\s*).*$#$1$2[REDACTED]#i; s#eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+#[JWT_REDACTED]#g; s#sb_secret_[A-Za-z0-9_-]+#[SECRET_KEY_REDACTED]#g; s#sb_publishable_[A-Za-z0-9_-]+#[PUBLISHABLE_KEY_REDACTED]#g;'
+          exit "$status"
+
+      - name: Verify local seed and RLS assumptions
+        run: |
+          supabase db query --local --output table "
+          select
+            (
+              select count(*)::integer
+              from public.personen
+              where email in (
+                'bas.beheerder@example.test',
+                'sanne.support@example.test',
+                'milan.medewerker@example.test',
+                'sam.bewoner@example.test',
+                'gijs.gast@example.test'
+              )
+            ) as leading_people_count,
+            (
+              select count(*)::integer
+              from public.personen
+              where email in (
+                'noor.bewoner@example.test',
+                'lotte.familie@example.test',
+                'vera.vrijwilliger@example.test'
+              )
+            ) as legacy_people_count,
+            (
+              select relrowsecurity
+              from pg_class
+              where oid = 'public.documenten'::regclass
+            ) as documenten_rls_enabled;
+          "
+
+      - name: Run pgTAP RLS tests
+        run: npm run test:rls
+
+      - name: Supabase DB lint
+        continue-on-error: true
+        run: supabase db lint --local --fail-on none

@@ -9,7 +9,7 @@ De testbasis volgt de SAM&ZO-architectuur:
 | Domein-/actiehelpers | Statusovergangen, RPC-aanroepen en foutafhandeling vastleggen. | Vitest unit tests met gemockte Supabase-client. |
 | Clientpagina's | Controleren dat bestaande schermen SAM&ZO-logica correct tonen. | Vitest + Testing Library in `jsdom`. |
 | Browserflows | Kritieke routes en gebruikerflows door de echte Next-app klikken. | Playwright, apart van de snelle unitrun. |
-| Supabase/RLS | Controleren dat policygrenzen overeenkomen met persoonlijke regie, groepen en zichtbaarheid. | Eerst plan en lint; later gerichte SQL/RLS-tests tegen lokale of linked testdatabase. |
+| Supabase/RLS | Controleren dat policygrenzen overeenkomen met persoonlijke regie, groepen en zichtbaarheid. | Gerichte pgTAP/RLS-tests tegen een lokale Supabase-testdatabase. |
 
 Bronnen van waarheid:
 
@@ -39,7 +39,39 @@ Bronnen van waarheid:
 | `tests/unit/` | Pure unit tests en actiehelpertests. |
 | `tests/integration/` | Component-integratietests met gemockte datahelpers. |
 | `tests/e2e/` | Playwright browsertests. |
-| `tests/rls/` | Toekomstige RLS-testscenario's of SQL-testdocumentatie. |
+| `tests/rls/` | Uitleg en scenario-overzicht voor echte RLS-tests. |
+| `supabase/tests/database/` | Uitvoerbare pgTAP/RLS-tests voor `supabase test db`. |
+
+## Actuele Fase 1-status
+
+De snelle testbasis is aanwezig en gebruikt Vitest, Testing Library en jsdom.
+Playwright is geconfigureerd, maar bevat nog geen reproduceerbare browserflows
+of authfixtures. De eerste uitvoerbare RLS-basis staat in
+`supabase/tests/database/` en draait via `npm run test:rls` tegen een lokale
+Supabase/Postgres-context.
+
+De Shadow cloud-pc kan deze lokale Supabase-runtime pas bewijzen zodra
+Docker/WSL2 gezond is. Tot die tijd gebruikt Fase 1B
+`.github/workflows/samzo-rls-ci.yml` als objectieve GitHub Actions-runtime voor
+lokale Supabase reset en RLS-tests. Deze workflow gebruikt geen Supabase access
+token, geen project-ref, geen remote database en geen secrets.
+
+Lokale resetstrategie:
+
+- `supabase/config.toml` gebruikt `supabase/seed.sql` als seed-entrypoint.
+- De leidende development/testdata voor Fase 1 staat in de migratieketen met
+  vijf kernprofielen: Bas Beheerder, Sanne Systeemondersteuner, Milan
+  Medewerker, Sam Bewoner en Gijs Gast.
+- `supabase/seed/017_seed_dev_data.sql` is een oudere acht-profielen seedset en
+  wordt niet automatisch geladen, om dubbele of inconsistente testdata te
+  voorkomen.
+- `npm run test:rls` vereist dat de lokale Supabase-stack draait en dat de
+  migratieketen lokaal is toegepast, bijvoorbeeld na `supabase db reset`.
+
+Wachtwoorden, service-role keys, Auth secrets en echte persoonsgegevens mogen
+niet in tests, seeddata, documentatie, prompts, traces of logs worden
+opgeslagen. Browsertesten kunnen later runtime het gedeelde lokale
+testwachtwoord nodig hebben.
 
 ## Naamconventies
 
@@ -56,8 +88,21 @@ Bronnen van waarheid:
 | --- | --- |
 | `npm run test` | Snelle regressierun via Vitest. |
 | `npm run test:unit` | Zelfde snelle Vitest-run, expliciet voor unit/component-integratie. |
+| `npm run test:rls` | Lokale Supabase pgTAP/RLS-tests. |
 | `npm run test:e2e` | Playwright browsertests. |
 | `npm run test:ci` | Typecheck, lint en Vitest voor CI-achtige controle. |
+
+## GitHub Actions
+
+| Workflow | Trigger | Doel |
+| --- | --- | --- |
+| `.github/workflows/samzo-rls-ci.yml` | `workflow_dispatch` en pull requests naar `main` | Typecheck, lint, Vitest, lokale Supabase start/reset, seed/RLS-controle en pgTAP RLS-tests. |
+
+Deze workflow draait op `ubuntu-latest`, gebruikt Node 24 en installeert de
+Supabase CLI via `supabase/setup-cli@v2` met versie `2.103.0`, gelijk aan de
+huidige project-devDependency. Supabase-output die lokale keys of database-URLs
+kan bevatten, wordt in de workflow geredacteerd. Browsertests en het gedeelde
+lokale testwachtwoord horen niet bij deze CI-stap.
 
 ## Nieuwe tests toevoegen
 
@@ -67,21 +112,22 @@ Werkwijze:
 2. Gebruik bestaande documenten en audits als functionele bron.
 3. Mock Supabase alleen op modulegrenzen, niet midden in componentlogica.
 4. Test gebruikerszichtbare tekst, knoppen en statuslabels met Testing Library.
-5. Voeg RLS-tests pas toe tegen een expliciet gekozen lokale of linked testdatabase.
+5. Voeg RLS-tests pas toe tegen een expliciet gekozen lokale testdatabase, tenzij
+   er apart GO is om een linked project te raken.
 6. Houd testdata klein en herkenbaar: Sam Bewoner, Bas Beheerder, Milan Medewerker, Sanne Systeemondersteuner en Gijs Gast.
 
 ## Supabase/RLS-strategie
 
-Voor deze ronde zijn geen databasewijzigingen nodig. De eerste RLS-testlaag moet
-apart worden toegevoegd, omdat RLS alleen betrouwbaar te testen is tegen een
-echte Postgres/Supabase-context met Auth-claims.
+De eerste RLS-testlaag gebruikt pgTAP via `supabase test db --local`. RLS is
+alleen betrouwbaar te testen tegen een echte Postgres/Supabase-context met
+Auth-claims; Vitest-mocks blijven aanvullend en bewijzen geen policygrenzen.
 
 Aanbevolen volgorde:
 
 | Stap | Inhoud |
 | --- | --- |
-| 1 | Supabase CLI-validatie blijven draaien: `npx supabase db lint --linked --schema public --level warning --fail-on none`. |
-| 2 | Lokale Supabase-testdatabase gebruiken zodra Docker beschikbaar is. |
-| 3 | RLS-scenario's vastleggen voor voorstelantwoord, documentzichtbaarheid, gastcontext en begeleidingsnotities. |
-| 4 | Alleen testdata gebruiken die idempotent en development-only is. |
-| 5 | Geen service-role in frontend- of browsertests gebruiken. |
+| 1 | Supabase CLI-validatie lokaal voorbereiden via help/status/reset-checks zonder remote project te raken. |
+| 2 | Lokale Supabase-testdatabase starten, resetten en `npm run test:rls` draaien. |
+| 3 | RLS-scenario's uitbreiden voor voorstelantwoord, gastcontext en begeleidingsnotities. |
+| 4 | Alleen testdata gebruiken die idempotent, fictief en development-only is. |
+| 5 | Geen service-role gebruiken om gewoon gebruikersgedrag te bewijzen; tijdelijke Auth-koppelingen horen in rollback-testsetup. |

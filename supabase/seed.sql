@@ -1,0 +1,13 @@
+-- SAM&ZO local seed entrypoint.
+--
+-- This file exists because supabase/config.toml declares:
+--   [db.seed]
+--   sql_paths = ["./seed.sql"]
+--
+-- For Fase 1, the leading development/test dataset is intentionally stored in
+-- the migration chain, starting with:
+--   supabase/migrations/20260601210656_seed_initial_samzo_data.sql
+--
+-- Keep this file as a no-op anchor until Fase 1 explicitly introduces
+-- additional local-only reset data. Do not include real personal data,
+-- passwords, Auth users, service-role keys, or production data here.
