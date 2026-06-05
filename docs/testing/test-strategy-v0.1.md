@@ -150,7 +150,7 @@ Bewezen RLS-domeinen:
 | Gastcontext | Gijs kan een expliciet gasttoegankelijk moment en zijn eigen gastdeelname zien; Gijs kan een bewonersmoment en intern medewerkersdocument niet zien. |
 | Begeleidingsnotities | Milan kan een notitie in een toegestane momentcontext aanmaken en zien; Sam kan die niet zien of aanmaken; Gijs kan die als gast niet zien. |
 | Supportvragen | Sam kan zijn eigen supportvraag zien; Sanne kan die als systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag niet zien of muteren. |
-| Mijn dag-compositie | Rollback-testdata bewijst dat Sam eigen deelname, open momentvoorstel, eigen taakrelatie en profielgerichte aandacht ziet; Milan eigen rolbezetting en momentcontext ziet; Gijs Sams persoonlijke relaties/aandacht niet ziet; groepscontext alleen geen profielgerichte Mijn dag-aandacht is. |
+| Mijn dag-compositie | Rollback-testdata bewijst dat Sam eigen deelname, open momentvoorstel, eigen taakrelatie en profielgerichte aandacht ziet; Milan via eigen rolbezetting de gekoppelde momentcontext ziet; Gijs Sams persoonlijke relaties/aandacht niet ziet; groepscontext alleen geen profielgerichte Mijn dag-aandacht is. |
 
 Aanbevolen volgorde:
 

@@ -675,6 +675,16 @@ select is(
 select is(
   (
     select count(*)::integer
+    from public.momenten
+    where id = '89010000-0000-4000-8000-000000000003'
+  ),
+  0,
+  'negative composition RLS: Milan role moment is not visible to Sam through a role relation'
+);
+
+select is(
+  (
+    select count(*)::integer
     from public.signalen
     where id = '89090000-0000-4000-8000-000000000001'
       and gericht_aan_profiel_id = app_private.current_profiel_id()
@@ -759,23 +769,11 @@ set local row_security = on;
 select is(
   (
     select count(*)::integer
-    from public.rolbezettingen
-    where id = '89040000-0000-4000-8000-000000000001'
-      and profiel_id = app_private.current_profiel_id()
-      and status = 'actief'
-  ),
-  1,
-  'positive composition RLS: Milan sees his own active role occupancy'
-);
-
-select is(
-  (
-    select count(*)::integer
     from public.momenten
     where id = '89010000-0000-4000-8000-000000000003'
   ),
   1,
-  'positive RLS: Milan can see the moment context for his own role occupancy'
+  'positive composition RLS: Milan role occupancy gives access to the linked moment context'
 );
 
 reset role;

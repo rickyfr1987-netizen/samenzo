@@ -57,10 +57,10 @@ Huidige RLS-basis:
 - `mijn_dag_compositie_rls.test.sql` maakt eigen rollback-testdata voor de
   eerste veilige Mijn dag-compositie;
 - Mijn dag-compositie-RLS bewijst dat Sam zijn eigen deelname, open
-  momentvoorstel, taakrelatie en profielgerichte aandacht ziet, Milan zijn
-  eigen rolbezetting en momentcontext ziet, Gijs Sams persoonlijke relaties en
-  aandacht niet ziet, en groepscontext alleen geen profielgerichte Mijn dag-
-  aandacht is;
+  momentvoorstel, taakrelatie en profielgerichte aandacht ziet, Milan via eigen
+  rolbezetting de gekoppelde momentcontext ziet, Gijs Sams persoonlijke
+  relaties en aandacht niet ziet, en groepscontext alleen geen profielgerichte
+  Mijn dag-aandacht is;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 

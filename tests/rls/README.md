@@ -57,8 +57,8 @@ Bewezen domeinen:
    systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag
    niet zien of muteren.
 6. Mijn dag-compositie: Sam ziet eigen deelname, open momentvoorstel,
-   taakrelatie en profielgerichte aandacht; Milan ziet eigen rolbezetting en
-   momentcontext; Gijs ziet Sams persoonlijke relaties/aandacht niet;
+   taakrelatie en profielgerichte aandacht; Milan ziet via eigen rolbezetting
+   de gekoppelde momentcontext; Gijs ziet Sams persoonlijke relaties/aandacht niet;
    groepscontext alleen is geen profielgerichte Mijn dag-aandacht.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
