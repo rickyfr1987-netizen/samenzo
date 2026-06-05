@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(10);
+select plan(13);
 
 insert into auth.users (
   id,
@@ -167,24 +167,26 @@ select is(
   'positive RLS: Sanne can see a support question as system support'
 );
 
-select is(
-  (
-    with updated as (
-      update public.supportvragen
-      set status = 'in_behandeling',
-        behandeld_door_persoon_id = '00000000-0000-4000-8000-000000000002',
-        updated_at = now()
-      where id = '70000000-0000-4000-8000-000000000001'
-      returning id
-    )
-    select count(*)::integer
-    from updated
-  ),
-  1,
+select lives_ok(
+  $$update public.supportvragen
+    set status = 'in_behandeling',
+      behandeld_door_persoon_id = '00000000-0000-4000-8000-000000000002',
+      updated_at = now()
+    where id = '70000000-0000-4000-8000-000000000001'$$,
   'positive RLS: Sanne can move a support question into treatment'
 );
 
 reset role;
+
+select is(
+  (
+    select status::text
+    from public.supportvragen
+    where id = '70000000-0000-4000-8000-000000000001'
+  ),
+  'in_behandeling',
+  'positive RLS: Sanne support update changed the support question status'
+);
 
 select set_config('request.jwt.claim.sub', '90000000-0000-4000-8000-000000000005', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
@@ -201,24 +203,26 @@ select is(
   'negative RLS: Gijs cannot see Sam support question as an unrelated guest profile'
 );
 
-select is(
-  (
-    with updated as (
-      update public.supportvragen
-      set status = 'gesloten',
-        gesloten_at = now(),
-        updated_at = now()
-      where id = '70000000-0000-4000-8000-000000000001'
-      returning id
-    )
-    select count(*)::integer
-    from updated
-  ),
-  0,
-  'negative RLS: Gijs cannot update Sam support question as an unrelated guest profile'
+select lives_ok(
+  $$update public.supportvragen
+    set status = 'gesloten',
+      gesloten_at = now(),
+      updated_at = now()
+    where id = '70000000-0000-4000-8000-000000000001'$$,
+  'negative RLS: Gijs update attempt does not error when the row is invisible'
 );
 
 reset role;
+
+select is(
+  (
+    select status::text
+    from public.supportvragen
+    where id = '70000000-0000-4000-8000-000000000001'
+  ),
+  'in_behandeling',
+  'negative RLS: Gijs cannot update Sam support question as an unrelated guest profile'
+);
 
 select * from finish();
 
