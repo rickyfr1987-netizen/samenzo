@@ -657,6 +657,111 @@ MVP-keuze:
 
 - beperkte aandacht behouden via Tijdlijn; geen aparte supportmodule.
 
+### 6.11 Directe persoonlijke items vanuit Mijn dag
+
+Doel en scope:
+
+- specificeer alleen wat later rechtstreeks vanuit Mijn dag persoonlijk mag
+  worden aangemaakt;
+- bouw in deze stap geen UI, formulier, plusknop, migratie, RLS-policy, RPC,
+  server action, seeddata of browserflow;
+- categorieen blijven beschrijvend en dragen geen rechten, zichtbaarheid of
+  routekeuze.
+
+Waarom dit nodig is:
+
+- Mijn dag toont nu vooral persoonlijke werkelijkheid die elders ontstaat;
+- een bewoner of gast moet later ook zelf een klein persoonlijk item kunnen
+  vastleggen zonder dat dit automatisch groepswerkelijkheid wordt;
+- een begeleider moet persoonlijke werkelijkheid voor een client niet
+  definitief kunnen maken zonder voorstel- of acceptatiestap.
+
+Drie soorten persoonlijke items:
+
+| Soort | Definitie | Voorbeelden | MVP-besluit |
+| --- | --- | --- | --- |
+| Afgeleid persoonlijk item | Item bestaat elders en wordt persoonlijk door deelname, rol, taakuitvoering, voorstel of profielgerichte aandacht. | deelname aan moment, rolbezetting, taakuitvoerder, doelacceptatie, document-attentie, tijdlijn-/support-aandacht | Blijft de basis van Mijn dag-compositie. |
+| Direct persoonlijk item | Actieve profiel maakt zelf eigen persoonlijke werkelijkheid. | eigen persoonlijke afspraak/moment; later persoonlijke taak; later persoonlijk aandachtspunt | Alleen specificeren; eerste bouwkandidaat is eigen persoonlijk moment. |
+| Voorgesteld persoonlijk item | Iemand anders wil persoonlijke werkelijkheid voor het profiel laten ontstaan. | begeleider stelt persoonlijk moment voor client voor | Blijft voorstelgestuurd; geen definitieve client-mutatie. |
+
+Persoonlijke afspraak / persoonlijk moment:
+
+- persoonlijke afspraak is functioneel hetzelfde als persoonlijk moment;
+- gebruik `momenten` met `eigenaar_profiel_id`, geen aparte tabel
+  `persoonlijke_afspraken`;
+- een eigen persoonlijk moment heeft geen verplichte `deelnames`-rij nodig:
+  eigenaar-profiel is de persoonlijke relatie;
+- een profiel mag later alleen voor het eigen actieve profiel definitief
+  aanmaken, mits RLS en inputflow dit afdwingen;
+- een begeleider die vanuit clientcontext werkt, maakt later een voorstel en
+  geen definitief clientmoment;
+- zonder `start_at` verschijnt het item niet in Mijn dag;
+- profiel-eigendom maakt het item niet automatisch breed zichtbaar in Planning.
+
+Persoonlijke taak:
+
+- `taken` zijn nu lijstgebonden via `lijst_id`;
+- `taakuitvoerders.profiel_id` is genoeg om een bestaande taak persoonlijk te
+  maken voor Mijn dag, maar niet genoeg als veilig maakmodel;
+- directe persoonlijke taakcreatie blijft later totdat een persoonlijke lijst-
+  of taakstrategie, mutatiepad en RLS-test expliciet gekozen zijn.
+
+Persoonlijk aandachtspunt:
+
+- maak nu geen nieuwe entiteit voor "aandachtspunt";
+- gebruik voorlopig bestaande compositiebronnen zoals `tijdlijnberichten`,
+  `signalen`, supportvragen of doel-/document-attentie;
+- een later aandachtspunt heeft minimaal bron, ontvanger, status en sluit- of
+  vervalgedrag nodig, zodat Mijn dag geen onbeperkte notificatielijst wordt.
+
+Begeleider naar client:
+
+- profieltoegang mag kijken en begeleiden mogelijk maken, maar niet stilzwijgend
+  persoonlijke werkelijkheid voor de client vastleggen;
+- begeleider-naar-client hoort daarom bij voorgestelde persoonlijke items;
+- de bestaande momentvoorstelroute dekt al momentdeelname en uitnodiging, maar
+  nog geen volledig nieuw persoonlijk moment als voorstel;
+- een latere bouwstap moet kiezen tussen nieuw `voorstel_type` met RPC of een
+  expliciet draft-/voorstelmodel.
+
+Plusknoproute:
+
+- de eerste veilige plusknopoptie voor Mijn dag is later: eigen persoonlijk
+  moment;
+- de route moet contextueel werken op het actieve eigen profiel;
+- persoonlijke taak en persoonlijk aandachtspunt blijven uit de eerste
+  plusknopstap;
+- doelen-dashboard, brede supportflow, documentenbeheer en categoriegedrag
+  horen niet bij deze route.
+
+RLS- en privacyregels:
+
+- UI-gating is nooit genoeg; database/RPC moet het actieve eigen profiel
+  afdwingen;
+- `has_profieltoegang` kan lezen toestaan, maar mag niet automatisch schrijven
+  namens de client toestaan;
+- categorieen mogen geen policyshortcut worden;
+- profieleigen momenten moeten niet via groeps- of Planningcontext lekken.
+
+Testdata nodig voor latere bouw:
+
+- eigen profiel maakt definitief persoonlijk moment voor vandaag;
+- persoonlijk moment voor ander profiel is niet zichtbaar of mutabel;
+- gearchiveerd persoonlijk moment verschijnt niet actief;
+- persoonlijk moment zonder datum verschijnt niet in Mijn dag;
+- begeleider-naar-client levert voorstel op, geen definitief moment;
+- persoonlijke taak alleen na gekozen persoonlijke lijst-/taakstrategie;
+- persoonlijk aandachtspunt alleen na gekozen bron-, status- en sluitmodel.
+
+Aanbevolen bouwvolgorde:
+
+1. Specificeer en test resetbare data voor eigen persoonlijke momenten.
+2. Voeg pgTAP/RLS-tests toe voor insert, lezen, wijzigen en lekgrenzen.
+3. Bouw een smalle RPC/server action voor eigen profiel persoonlijk moment.
+4. Sluit pas daarna een contextuele Mijn dag-plusknop aan.
+5. Ontwerp daarna begeleider-naar-client als voorstelpad.
+6. Pak persoonlijke taken en aandachtspunten pas op na hun datamodelkeuze.
+
 ## 7. Besluiten voor MVP
 
 1. Mijn dag blijft compositie van persoonlijke relaties, geen losse entiteit.
@@ -671,6 +776,8 @@ MVP-keuze:
    acceptatieknoppen en doelmutaties blijven later.
 9. Support blijft aandacht via Tijdlijn, geen ticketsysteem.
 10. Categorieen mogen nooit rechten of zichtbaarheid bepalen.
+11. Directe persoonlijke invoer start later alleen met eigen persoonlijk moment;
+    persoonlijke taken en aandachtspunten blijven aparte vervolgstappen.
 
 ## 8. Uitgestelde onderdelen
 
@@ -680,6 +787,9 @@ MVP-keuze:
 - muterende taakflows vanuit Mijn dag;
 - document onder aandacht als volwaardige UI-flow;
 - persoonlijke momenten aanmaken of wijzigen;
+- directe persoonlijke plusknop vanuit Mijn dag;
+- persoonlijke taak zonder gekozen lijst-/taakstrategie;
+- persoonlijk aandachtspunt zonder bron-, status- en sluitmodel;
 - groepsgerichte aandacht in Mijn dag;
 - historiek van afgehandelde aandacht;
 - browserflows en Playwright-mutaties;
@@ -691,6 +801,7 @@ MVP-keuze:
 | --- | --- | --- |
 | Doelen zonder acceptatieflow | Read-only aandachtkaart en geaccepteerd doelitem zijn zichtbaar en RLS-bewijs is voorbereid, maar persoonlijke acceptatie/weigering ontbreekt bewust | Voorstelgestuurde of RPC-gestuurde acceptatieflow in aparte vervolgstap |
 | Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
+| Direct persoonlijk item vanuit Mijn dag nog niet muterend bewezen | Eigen profiel mag later eigen werkelijkheid maken, maar insert/update-grenzen zijn nog niet getest | RLS-first eigen-persoonlijk-momentflow met resetbare testdata |
 | Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
 | Mijn dag als samengestelde query niet RLS-getest | Tabel-RLS kan kloppen terwijl compositie privacy lekt | Compositie-scenario's in pgTAP |
@@ -706,6 +817,9 @@ Minimale resetbare scenario's voor Fase 2:
 - Milan met rolbezetting vandaag;
 - persoonlijk moment van Sam zonder deelname;
 - persoonlijk moment van ander profiel;
+- eigen profiel dat later een persoonlijk moment mag aanmaken;
+- begeleider-naar-client als voorstel, niet als definitief persoonlijk moment;
+- persoonlijk moment zonder datum dat niet in Mijn dag verschijnt;
 - profielgerichte aandacht voor Sam;
 - groepsgerichte aandacht die niet in Mijn dag verschijnt;
 - document-attentie naar zichtbaar document;
@@ -752,19 +866,27 @@ Fase 2 Stap 2M sluit die helper aan op `/mijn-dag`: `voorgesteld` toont
 accepteren, weigeren en later bekijken; `later_bekijken` toont alleen
 accepteren en weigeren. Deze acties verschijnen alleen bij het eigen profiel en
 blijven via de RPC/RLS-laag lopen.
+Fase 2 Stap 2N specificeert directe persoonlijke items vanuit Mijn dag zonder
+implementatie. De eerste latere maakflow is eigen persoonlijk moment via
+`momenten.eigenaar_profiel_id`; begeleider-naar-client blijft voorstelgestuurd,
+persoonlijke taken blijven lijst-/taakstrategie-afhankelijk en persoonlijke
+aandachtspunten blijven compositie totdat bron, status en sluitgedrag zijn
+gekozen.
 
 ## 11. Aanbevolen bouwvolgorde
 
 1. Voeg resetbare testdata toe voor Mijn dag-compositie zonder nieuwe UI.
 2. Voeg pgTAP/RLS-tests toe voor persoonlijke momenten en compositiegrenzen.
 3. Herijk de Mijn dag-query voor eigenaar-profiel-momenten.
-4. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
-5. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
+4. Bouw directe eigen persoonlijke momentcreatie pas RLS-first, met insert- en
+   updategrenzen voor het actieve eigen profiel.
+5. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
+6. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
    Mijn dag-aandacht wordt.
-6. Houd doelen onder aandacht read-only zichtbaar; bouw acceptatie/weigering pas
+7. Houd doelen onder aandacht read-only zichtbaar; bouw acceptatie/weigering pas
    later als aparte persoonlijke regieflow op basis van de Stap 2K-specificatie.
-7. Breid UI pas uit na groene RLS/testdata-basis.
-8. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.
+8. Breid UI pas uit na groene RLS/testdata-basis.
+9. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.
 
 ## 12. Voorstel voor Fase 2 Stap 2C
 
@@ -783,21 +905,21 @@ Reasoningniveau: extra hoog.
 Browsertesten: nee.
 Het gedeelde lokale testwachtwoord is niet nodig.
 
-## 13. Voorstel voor Fase 2 Stap 2N
+## 13. Voorstel voor Fase 2 Stap 2O
 
 Voorgesteld doel:
 
-- voeg resetbare browserdata of een lichte browser-smokevoorbereiding toe voor
-  Mijn dag-acties, zonder echte persoonsgegevens of secrets;
-- test nog geen brede doelenmodule;
-- houd de smoke beperkt tot login, eigen profiel, zichtbaarheid van
-  doelacceptatie-acties en veilige afwezigheid bij andermans profiel;
+- bouw nog geen formulier of plusknop;
+- maak de RLS-first basis voor eigen persoonlijk moment aanmaken vanuit Mijn
+  dag: resetbare testdata, insert-/updatepolicy of RPC-keuze en pgTAP-bewijs;
+- bewijs dat alleen het actieve eigen profiel definitieve persoonlijke momenten
+  kan maken;
+- bewijs dat begeleider-naar-client geen definitieve mutatie mag doen;
 - raak geen remote Supabase-project en geen service-role aan.
 
-Aanbevolen model: GPT-5.3 Codex.
-Reden: de RPC/RLS- en UI-laag zijn al gebouwd; de volgende stap is vooral
-testdata, resetbaarheid en een kleine browserroute zonder nieuwe domeinlogica.
-Reasoningniveau: hoog.
-Browsertesten: ja, maar alleen als resetbare lokale data beschikbaar is.
-Het gedeelde lokale testwachtwoord is alleen runtime nodig wanneer de browser
-daadwerkelijk inlogt.
+Aanbevolen model: GPT-5.5 Codex.
+Reden: deze stap raakt persoonlijke werkelijkheid, RLS-mutaties, RPC-keuze en
+testdata-isolatie.
+Reasoningniveau: extra hoog.
+Browsertesten: nee.
+Het gedeelde lokale testwachtwoord is niet nodig.

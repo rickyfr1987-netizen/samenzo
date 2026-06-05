@@ -74,7 +74,10 @@ browserflow. Fase 2 Stap 2L voegt de smalle `beantwoord_doelacceptatie`-RPC en
 een TypeScript-helper toe, met pgTAP/RLS-dekking en unitdekking, maar zonder
 Mijn dag-knoppen of browserflow. Fase 2 Stap 2M sluit die helper compact aan
 op doel-attenties in `/mijn-dag`, alleen voor het eigen profiel en zonder
-doelenbeheerflow of browserflow.
+doelenbeheerflow of browserflow. Fase 2 Stap 2N specificeert directe
+persoonlijke items vanuit Mijn dag zonder implementatie: eigen persoonlijk
+moment is de eerste latere RLS-first kandidaat, begeleider-naar-client blijft
+voorstelgestuurd en persoonlijke taken/aandachtspunten blijven uitgesteld.
 De centrale matrix en besluitvorming staan in
 `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
@@ -174,6 +177,7 @@ Bewezen RLS-domeinen:
 | Mijn dag doel-attentie UI | Testing Library bewijst dat doel-attenties zichtbaar worden als aandachtkaart, naar de doelroute linken en alleen bij het eigen profiel actieknoppen tonen: `voorgesteld` krijgt accepteren/weigeren/later bekijken, `later_bekijken` alleen accepteren/weigeren. Andermans profielperspectief blijft read-only. |
 | Mijn dag geaccepteerde doelen | Unit- en componenttests bewijzen dat `geaccepteerd` als read-only persoonlijk doelitem verschijnt binnen de doelperiode vanaf acceptatie, of zonder periode alleen op de acceptatiedag; voorgestelde/later-bekijken doelen blijven aandachtitems. |
 | Doelacceptatie-acties | `beantwoord_doelacceptatie` bewijst eigen-profielacties voor `voorgesteld` naar `geaccepteerd`, `geweigerd` en `later_bekijken`, plus `later_bekijken` naar `geaccepteerd` of `geweigerd`; verborgen doelen, andermans profielcontext, beheerder/medewerkercontext, herbeantwoorden en timestampconsistentie blijven gesloten of expliciet bewezen. |
+| Directe persoonlijke items | Nog geen bewijsclaim: Stap 2N specificeert alleen dat eigen persoonlijk moment later via `momenten.eigenaar_profiel_id` RLS-first gebouwd mag worden; taken en aandachtspunten wachten op een expliciete datamodelkeuze. |
 
 Aanbevolen volgorde:
 
