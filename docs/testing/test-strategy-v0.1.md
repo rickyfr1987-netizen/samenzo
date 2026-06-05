@@ -19,6 +19,7 @@ Bronnen van waarheid:
 | `docs/architecture/` | Datamodel-, RLS- en statusrichting. |
 | `docs/audits/autonomous-project-audit-v0.1.md` | Implementatiematrix en testgaten. |
 | `docs/audits/stability-cleanup-round-v0.1.md` | Gehard voorstelgedrag en resterende risico's. |
+| `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md` | Centrale Fase 1 RLS-bewijsmatrix, CI-route, open risico's en resterende Fase 1-stappen. |
 
 ## Tooling
 
@@ -51,7 +52,8 @@ en draait via `npm run test:rls` tegen een lokale Supabase/Postgres-context.
 Documenten-RLS is het eerste bewezen domein; voorstellen-RLS is het tweede
 bewezen domein; gastcontext-RLS is het derde bewezen domein; minimale
 begeleidingsnotities-RLS is het vierde bewezen domein; minimale
-supportvragen-RLS is het vijfde bewezen domein.
+supportvragen-RLS is het vijfde bewezen domein. De centrale matrix en
+besluitvorming staan in `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
 De Shadow cloud-pc kan deze lokale Supabase-runtime pas bewijzen zodra
 Docker/WSL2 gezond is. Tot die tijd gebruikt Fase 1B
@@ -148,3 +150,7 @@ Aanbevolen volgorde:
 De minimale begeleidingsnotities- en supportvragen-RLS-tests ronden die
 domeinen niet functioneel af. Realistische individuele contexten, detailflows,
 supportreacties en volledige sluitflows blijven later, na Fase 2.
+
+Fase 1 is nog niet volledig afgerond. Voor afsluiting blijven minimaal
+Playwright-authbasis, resetbare browserdata en de mini-audit
+"RLS-testbasis en resetbare browserdata" over.

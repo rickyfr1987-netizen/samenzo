@@ -61,6 +61,9 @@ domeinen niet functioneel af. Support blijft hier lichte tijdlijn-support en
 wordt geen ticketmodule. Realistische individuele contexten en volledige flows
 blijven bewust later, na Fase 2.
 
+De compacte Fase 1 RLS-bewijsmatrix met CI-route, open risico's en resterende
+Fase 1-stappen staat in `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
+
 Gebruik hier geen echte persoonsgegevens, geen service-role secrets en geen
 wachtwoorden. Browser- of RLS-tests die authenticatie nodig hebben, moeten
 credentials runtime aanleveren en uitsluitend verwijzen naar het gedeelde lokale

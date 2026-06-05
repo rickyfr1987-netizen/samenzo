@@ -23,6 +23,10 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
+De centrale Fase 1-bewijsmatrix, CI-route, risicoordening en resterende
+Fase 1-stappen staan in
+`docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
+
 Runtimebewijs:
 
 - lokaal op de Shadow cloud-pc is Supabase runtime geblokkeerd zolang
