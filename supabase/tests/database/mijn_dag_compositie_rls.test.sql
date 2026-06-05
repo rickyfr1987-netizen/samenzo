@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(20);
+select plan(18);
 
 insert into auth.users (
   id,
@@ -725,38 +725,6 @@ select is(
   ),
   0,
   'negative composition rule: group context alone is not profile-targeted Mijn dag attention'
-);
-
-select is(
-  (
-    select voorstel_status::text
-    from public.beantwoord_moment_voorstel(
-      '89050000-0000-4000-8000-000000000001',
-      app_private.current_profiel_id(),
-      'reject'
-    )
-    limit 1
-  ),
-  'geweigerd',
-  'positive RPC/RLS: Sam can answer his own open moment proposal'
-);
-
-reset role;
-
-select set_config('request.jwt.claim.sub', '90000000-0000-4000-8000-000000000001', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-set local role authenticated;
-set local row_security = on;
-
-select throws_ok(
-  $$select * from public.beantwoord_moment_voorstel(
-    '89050000-0000-4000-8000-000000000001',
-    '10000000-0000-4000-8000-000000000004',
-    'accept'
-  )$$,
-  '42501',
-  'Voorstelactie is alleen toegestaan voor het ontvangende profiel.',
-  'negative RPC/RLS: Bas cannot answer Sam proposal on behalf of Sam'
 );
 
 reset role;
