@@ -65,7 +65,8 @@ toe als read-only compositiepad waarbij document-RLS zelfstandig leidend blijft.
 Fase 2 Stap 2G voegt minimale `doelacceptaties`-RLS toe voor eigen profiel,
 zonder Mijn dag-doelenkaart of doelacceptatieformulier. Fase 2 Stap 2H voegt
 read-only doel-attenties toe als compositiepad waarbij doel-RLS zelfstandig
-leidend blijft.
+leidend blijft. Fase 2 Stap 2I maakt die doel-attenties zichtbaar in de Mijn
+dag UI met componentdekking, zonder acceptatie- of weigeracties.
 De centrale matrix en besluitvorming staan in
 `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
@@ -162,6 +163,7 @@ Bewezen RLS-domeinen:
 | Mijn dag document-attenties | Rollback-testdata bewijst dat profielgerichte document-attenties uit tijdlijnberichten en signalen alleen een documentkaart kunnen worden wanneer het gekoppelde document via document-RLS zichtbaar is; groepscontext alleen wordt geen persoonlijke document-attentie. |
 | Doelacceptaties | Rollback-testdata bewijst dat een profiel alleen eigen voorgestelde doelacceptaties kan zien en beantwoorden wanneer het gekoppelde doel via `can_view_doel` zichtbaar is; verborgen doelen, andere profielen, Bas en insert blijven gesloten. |
 | Mijn dag doel-attenties | Rollback-testdata bewijst dat eigen `doelacceptaties` met status `voorgesteld` of `later_bekijken` alleen een read-only doel-attentie worden wanneer het gekoppelde doel via doel-RLS zichtbaar is; `geweigerd` en `geaccepteerd` worden niet als actieve doel-attentie samengesteld. |
+| Mijn dag doel-attentie UI | Testing Library bewijst dat read-only doel-attenties zichtbaar worden als aandachtkaart, naar de read-only doelroute linken en geen acceptatie-, weiger- of later-bekijken-knoppen renderen. |
 
 Aanbevolen volgorde:
 
@@ -175,9 +177,8 @@ Aanbevolen volgorde:
 
 De minimale begeleidingsnotities-, supportvragen- en doelacceptaties-RLS-tests
 ronden die domeinen niet functioneel af. De Mijn dag-compositie-RLS-tests
-bouwen geen UI en geen muterende flow; ze bewijzen alleen de databasegrenzen
-voor de eerste veilige compositiepaden. Realistische individuele contexten,
-detailflows,
+bouwen geen muterende flow; ze bewijzen de databasegrenzen voor de eerste
+veilige compositiepaden. Realistische individuele contexten, detailflows,
 supportreacties en volledige sluitflows blijven later, na Fase 2.
 
 Fase 1 is nog niet volledig afgerond. Voor afsluiting blijven minimaal

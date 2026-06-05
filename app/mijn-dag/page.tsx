@@ -13,10 +13,12 @@ import {
 } from "@/src/lib/voorstellen/items";
 import {
   fetchMijnDagDocumentAttentionItems,
+  fetchMijnDagGoalAttentionItems,
   fetchMijnDagItems,
   fetchMijnDagTaskItems,
   getLocalDayRange,
   type MijnDagDocumentAttentionItem,
+  type MijnDagGoalAttentionItem,
   type MijnDagItem,
   type MijnDagTaskItem
 } from "@/src/lib/mijn-dag/items";
@@ -281,6 +283,15 @@ function mapDocumentAttentionItems(items: MijnDagDocumentAttentionItem[]) {
   }));
 }
 
+function mapGoalAttentionItems(items: MijnDagGoalAttentionItem[]) {
+  return items.map((item) => ({
+    ...item,
+    kind: "attention" as const,
+    linkHref: `/doelen/${item.goalId}`,
+    proposal: null
+  }));
+}
+
 function mapTimelineAttentionItems(
   timelineItems: TimelineItem[],
   activeProfileId: string,
@@ -390,12 +401,14 @@ export default function MijnDagPage() {
         proposals,
         tasks,
         documentAttentionItems,
+        goalAttentionItems,
         timelineItems
       ] = await Promise.all([
         fetchMijnDagItems(currentProfiel.id, date),
         fetchOpenMomentProposalsForProfile(currentProfiel.id),
         fetchMijnDagTaskItems(currentProfiel.id, date),
         fetchMijnDagDocumentAttentionItems(currentProfiel.id, date),
+        fetchMijnDagGoalAttentionItems(currentProfiel.id, date),
         fetchVisibleTimelineItems()
       ]);
 
@@ -408,7 +421,8 @@ export default function MijnDagPage() {
       const merged = [
         ...mergedItems,
         ...mapTaskItems(tasks),
-        ...mapDocumentAttentionItems(documentAttentionItems)
+        ...mapDocumentAttentionItems(documentAttentionItems),
+        ...mapGoalAttentionItems(goalAttentionItems)
       ]
         .concat(
           mapTimelineAttentionItems(

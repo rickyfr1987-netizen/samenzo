@@ -16,7 +16,7 @@ Buiten scope:
 - Playwright-tests of browserflows;
 - categoriegedrag;
 - voorsteltypes buiten momenten bouwen;
-- doelen onder aandacht read-only afronden.
+- doelen onder aandacht read-only zichtbaar maken.
 
 ## 2. Definitie: Mijn dag als persoonlijke werkelijkheid
 
@@ -87,7 +87,7 @@ Mijn dag is niet:
 | Taak | `taakuitvoerders` + `taken` + `lijsten` | Eerst read-only | Afvinken later na resetdata | Read policies aanwezig, mutaties apart |
 | Aandachtspunt | Tijdlijn, Signalen, Support, Voorstellen | Bouwen als compositie | Afhandelen later per bron | Bron-RLS leidend |
 | Document onder aandacht | Profielgerichte `tijdlijnberichten`/`signalen` + `documenten` | Read-only voorbereiden | Document openen alleen als document-RLS toestaat | Document-attentie RLS bewezen in Stap 2F |
-| Doel onder aandacht | `doelacceptaties` + daarna `doelen` | Read-only voorbereiden | Geen acceptatieknoppen in Mijn dag | Doel-attentie RLS bewezen in Stap 2H |
+| Doel onder aandacht | `doelacceptaties` + daarna `doelen` | Read-only zichtbaar | Geen acceptatieknoppen in Mijn dag | Doel-attentie RLS bewezen in Stap 2H; UI zichtbaar in Stap 2I |
 | Tijdlijn-/support-aandacht | `tijdlijnberichten`, `supportvragen`, `signalen` | Beperkt handhaven | Geen ticketsysteem | Minimale support-RLS bewezen |
 
 ## 6. Per itemtype
@@ -530,8 +530,8 @@ Testdata nodig:
 
 MVP-keuze:
 
-- read-only compositie is voorbereid; UI-kaart, acceptatie/weigering en
-  beheerflow blijven uitgesteld.
+- read-only kaart is zichtbaar in Mijn dag; acceptatie/weigering en beheerflow
+  blijven uitgesteld.
 
 ### 6.10 Tijdlijn-/support-aandacht
 
@@ -597,7 +597,7 @@ MVP-keuze:
 ## 8. Uitgestelde onderdelen
 
 - doelacceptatie-acties;
-- doelen onder aandacht als volwaardige UI-kaart;
+- doelacceptatieknoppen op doelen onder aandacht;
 - voorsteltypes voor taken, doelen, documenten en persoonlijke momenten;
 - muterende taakflows vanuit Mijn dag;
 - document onder aandacht als volwaardige UI-flow;
@@ -611,7 +611,7 @@ MVP-keuze:
 
 | Gat | Effect | Vereist voor bouw |
 | --- | --- | --- |
-| Doelen onder aandacht nog niet als UI-kaart gebouwd | Read-only compositie en RLS-bewijs zijn voorbereid, maar er is geen zichtbare doelenkaart | UI-ontwerp + browservrije componenttest in vervolgstap |
+| Doelen onder aandacht nog zonder acceptatieflow | Read-only kaart is zichtbaar en RLS-bewijs is voorbereid, maar persoonlijke acceptatie/weigering ontbreekt bewust | Voorstelgestuurde of RPC-gestuurde acceptatieflow in aparte vervolgstap |
 | Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
 | Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
@@ -659,7 +659,9 @@ doelacceptatie zien en beantwoorden, mits het gekoppelde doel via
 `supabase/tests/database/mijn_dag_doel_attenties_rls.test.sql` toe en bereidt
 read-only `fetchMijnDagGoalAttentionItems` voor. Alleen `voorgesteld` en
 `later_bekijken` zijn actieve doel-attenties; `geweigerd` en `geaccepteerd`
-worden niet als actieve doelkaart samengesteld.
+worden niet als actieve doelkaart samengesteld. Fase 2 Stap 2I toont deze
+read-only doel-attenties in `/mijn-dag`, zonder acceptatieknoppen,
+weigerknoppen, later-bekijken-knop of formulier.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -669,8 +671,8 @@ worden niet als actieve doelkaart samengesteld.
 4. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
 5. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
    Mijn dag-aandacht wordt.
-6. Houd doelen onder aandacht read-only en bouw pas later een UI-kaart zonder
-   doelacceptatieknoppen.
+6. Houd doelen onder aandacht read-only zichtbaar; bouw acceptatie/weigering pas
+   later als aparte persoonlijke regieflow.
 7. Breid UI pas uit na groene RLS/testdata-basis.
 8. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.
 
