@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
+  acceptDoelacceptatie,
+  bekijkDoelacceptatieLater,
+  weigerDoelacceptatie,
+  type DoelacceptatieAntwoord
+} from "@/src/lib/doelacceptaties/actions";
+import {
   acceptVoorstel,
   declineVoorstel
 } from "@/src/lib/voorstellen/actions";
@@ -38,9 +44,16 @@ type MijnDagProposalCardItem = MijnDagItem & {
   proposal: VoorstelItem | null;
 };
 
+type MijnDagGoalAcceptanceAction = {
+  acceptanceId: string;
+  acceptanceStatus: MijnDagGoalAttentionItem["acceptanceStatus"];
+  goalId: string;
+};
+
 type MijnDagDisplayItem = MijnDagProposalCardItem & {
   kind: "moment" | "task" | "attention" | "goal";
   linkHref: string | null;
+  goalAcceptance: MijnDagGoalAcceptanceAction | null;
 };
 
 type MijnDagState =
@@ -53,10 +66,10 @@ type MijnDagState =
   | { status: "error"; message: string };
 
 type ActionState =
-  | { status: "idle"; message: string | null; voorstelId: string | null }
-  | { status: "running"; message: string; voorstelId: string | null }
-  | { status: "success"; message: string; voorstelId: string | null }
-  | { status: "error"; message: string; voorstelId: string | null };
+  | { status: "idle"; message: string | null; actionId: string | null }
+  | { status: "running"; message: string; actionId: string | null }
+  | { status: "success"; message: string; actionId: string | null }
+  | { status: "error"; message: string; actionId: string | null };
 
 const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
   dateStyle: "medium"
@@ -211,7 +224,8 @@ function mergeMomentItemsWithProposals(
     mergedItems.push({
       ...mergedItem,
       kind: "moment",
-      linkHref: `/planning/${moment.id}`
+      linkHref: `/planning/${moment.id}`,
+      goalAcceptance: null
     });
   }
 
@@ -252,7 +266,8 @@ function mergeMomentItemsWithProposals(
     mergedItems.push({
       ...mergedItem,
       kind: "moment",
-      linkHref: `/planning/${proposal.linkedMoment.id}`
+      linkHref: `/planning/${proposal.linkedMoment.id}`,
+      goalAcceptance: null
     });
   }
 
@@ -272,7 +287,8 @@ function mapTaskItems(tasks: MijnDagTaskItem[]) {
     ...task,
     kind: "task" as const,
     linkHref: task.listId ? `/lijsten/${task.listId}` : null,
-    proposal: null
+    proposal: null,
+    goalAcceptance: null
   }));
 }
 
@@ -281,7 +297,8 @@ function mapDocumentAttentionItems(items: MijnDagDocumentAttentionItem[]) {
     ...item,
     kind: "attention" as const,
     linkHref: `/documenten/${item.documentId}`,
-    proposal: null
+    proposal: null,
+    goalAcceptance: null
   }));
 }
 
@@ -290,7 +307,12 @@ function mapGoalAttentionItems(items: MijnDagGoalAttentionItem[]) {
     ...item,
     kind: "attention" as const,
     linkHref: `/doelen/${item.goalId}`,
-    proposal: null
+    proposal: null,
+    goalAcceptance: {
+      acceptanceId: item.acceptanceId,
+      acceptanceStatus: item.acceptanceStatus,
+      goalId: item.goalId
+    }
   }));
 }
 
@@ -299,7 +321,8 @@ function mapAcceptedGoalItems(items: MijnDagAcceptedGoalItem[]) {
     ...item,
     kind: "goal" as const,
     linkHref: `/doelen/${item.goalId}`,
-    proposal: null
+    proposal: null,
+    goalAcceptance: null
   }));
 }
 
@@ -379,6 +402,7 @@ function mapTimelineAttentionItems(
         }
       ],
       proposal: null,
+      goalAcceptance: null,
       kind: "attention",
       linkHref:
         item.related?.type === "moment" ? `/planning/${item.related.id}` : null
@@ -392,7 +416,7 @@ export default function MijnDagPage() {
   const [actionState, setActionState] = useState<ActionState>({
     status: "idle",
     message: null,
-    voorstelId: null
+    actionId: null
   });
   const [today] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -504,7 +528,7 @@ export default function MijnDagPage() {
       setActionState({
         status: "error",
         message: "Je moet ingelogd zijn met een actief profiel.",
-        voorstelId: voorstel.id
+        actionId: voorstel.id
       });
       return;
     }
@@ -514,7 +538,7 @@ export default function MijnDagPage() {
         status: "error",
         message:
           "Voorstelacties zijn tijdelijk alleen beschikbaar vanuit je eigen profiel.",
-        voorstelId: voorstel.id
+        actionId: voorstel.id
       });
       return;
     }
@@ -525,7 +549,7 @@ export default function MijnDagPage() {
         actie === "accept"
           ? "Voorstel accepteren..."
           : "Voorstel afwijzen...",
-      voorstelId: voorstel.id
+      actionId: voorstel.id
     });
 
     try {
@@ -554,7 +578,7 @@ export default function MijnDagPage() {
           actie === "accept"
             ? "Het voorstel is geaccepteerd."
             : "Het voorstel is afgewezen.",
-        voorstelId: voorstel.id
+        actionId: voorstel.id
       });
     } catch (error: unknown) {
       setActionState({
@@ -563,13 +587,90 @@ export default function MijnDagPage() {
           error instanceof Error
             ? "Het voorstel kon niet worden verwerkt. Probeer opnieuw."
             : "Het voorstel kon niet worden verwerkt. Probeer opnieuw.",
-        voorstelId: voorstel.id
+        actionId: voorstel.id
+      });
+    }
+  }
+
+  async function handleGoalAcceptanceDecision(
+    actie: DoelacceptatieAntwoord,
+    goalAcceptance: MijnDagGoalAcceptanceAction
+  ) {
+    if (
+      mijnDag.status !== "ready" ||
+      !mijnDag.context.authUser ||
+      !mijnDag.context.currentProfiel
+    ) {
+      setActionState({
+        status: "error",
+        message: "Je moet ingelogd zijn met een actief profiel.",
+        actionId: goalAcceptance.acceptanceId
+      });
+      return;
+    }
+
+    if (!canActOnCurrentProfile) {
+      setActionState({
+        status: "error",
+        message:
+          "Doelacceptatieacties zijn alleen beschikbaar vanuit je eigen profiel.",
+        actionId: goalAcceptance.acceptanceId
+      });
+      return;
+    }
+
+    const actionLabel =
+      actie === "accept"
+        ? "Doel accepteren..."
+        : actie === "reject"
+          ? "Doel weigeren..."
+          : "Doel later bekijken...";
+
+    setActionState({
+      status: "running",
+      message: actionLabel,
+      actionId: goalAcceptance.acceptanceId
+    });
+
+    try {
+      const input = {
+        acceptatieId: goalAcceptance.acceptanceId,
+        profielId: mijnDag.context.currentProfiel.id
+      };
+
+      if (actie === "accept") {
+        await acceptDoelacceptatie(input);
+      } else if (actie === "reject") {
+        await weigerDoelacceptatie(input);
+      } else {
+        await bekijkDoelacceptatieLater(input);
+      }
+
+      await loadMijnDag(selectedDate);
+      setActionState({
+        status: "success",
+        message:
+          actie === "accept"
+            ? "Het doel is geaccepteerd."
+            : actie === "reject"
+              ? "Het doel is geweigerd."
+              : "Het doel blijft bewaard voor later bekijken.",
+        actionId: goalAcceptance.acceptanceId
+      });
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "De doelacceptatieactie kon niet worden uitgevoerd. Probeer opnieuw.",
+        actionId: goalAcceptance.acceptanceId
       });
     }
   }
 
   function updateSelectedDate(date: Date) {
-    setActionState({ status: "idle", message: null, voorstelId: null });
+    setActionState({ status: "idle", message: null, actionId: null });
     setMijnDag({ status: "loading" });
     setSelectedDate(date);
   }
@@ -682,11 +783,11 @@ export default function MijnDagPage() {
       !canActOnCurrentProfile &&
       context?.ownProfiel ? (
         <div className="mijn-dag-state mijn-dag-state--error">
-          <h2>Voorstelactie niet beschikbaar</h2>
+          <h2>Acties niet beschikbaar</h2>
           <p>
             Je bekijkt momenteel {mijnDag.context.currentProfiel?.weergavenaam}.
-            Voorstellen accepteren/afwijzen is tijdelijk alleen actief voor je
-            eigen profiel: {context.ownProfiel.weergavenaam}.
+            Voorstellen en doelacceptaties beantwoorden is alleen actief voor
+            je eigen profiel: {context.ownProfiel.weergavenaam}.
           </p>
         </div>
       ) : null}
@@ -746,7 +847,7 @@ export default function MijnDagPage() {
                         }
                         disabled={
                           actionState.status === "running" &&
-                          actionState.voorstelId === item.proposal.id
+                          actionState.actionId === item.proposal.id
                         }
                         type="button"
                       >
@@ -758,7 +859,7 @@ export default function MijnDagPage() {
                         }
                         disabled={
                           actionState.status === "running" &&
-                          actionState.voorstelId === item.proposal.id
+                          actionState.actionId === item.proposal.id
                         }
                         type="button"
                       >
@@ -768,6 +869,70 @@ export default function MijnDagPage() {
                   ) : (
                     <p className="mijn-dag-state mijn-dag-state--error">
                       Actie niet beschikbaar voor dit bekeken profiel.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
+              {item.goalAcceptance ? (
+                <div className="mijn-dag-proposal-actions">
+                  {canActOnCurrentProfile ? (
+                    <>
+                      <button
+                        onClick={() =>
+                          void handleGoalAcceptanceDecision(
+                            "accept",
+                            item.goalAcceptance!
+                          )
+                        }
+                        disabled={
+                          actionState.status === "running" &&
+                          actionState.actionId ===
+                            item.goalAcceptance.acceptanceId
+                        }
+                        type="button"
+                      >
+                        Accepteren
+                      </button>
+                      <button
+                        onClick={() =>
+                          void handleGoalAcceptanceDecision(
+                            "reject",
+                            item.goalAcceptance!
+                          )
+                        }
+                        disabled={
+                          actionState.status === "running" &&
+                          actionState.actionId ===
+                            item.goalAcceptance.acceptanceId
+                        }
+                        type="button"
+                      >
+                        Weigeren
+                      </button>
+                      {item.goalAcceptance.acceptanceStatus ===
+                      "voorgesteld" ? (
+                        <button
+                          onClick={() =>
+                            void handleGoalAcceptanceDecision(
+                              "later",
+                              item.goalAcceptance!
+                            )
+                          }
+                          disabled={
+                            actionState.status === "running" &&
+                            actionState.actionId ===
+                              item.goalAcceptance.acceptanceId
+                          }
+                          type="button"
+                        >
+                          Later bekijken
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="mijn-dag-state mijn-dag-state--error">
+                      Doelacceptatie niet beschikbaar voor dit bekeken profiel.
                     </p>
                   )}
                 </div>

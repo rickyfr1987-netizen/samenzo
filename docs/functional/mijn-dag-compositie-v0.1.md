@@ -519,6 +519,8 @@ Actiebeleid:
   voortgang, dashboard of rapportage;
 - Stap 2L voegt een smalle RPC-actielaag toe voor eigen doelacceptaties, maar
   nog geen knoppen, formulier of doelenbeheerflow;
+- Stap 2M sluit deze actielaag compact aan op doel-attenties in Mijn dag,
+  alleen voor het eigen profiel en zonder doelenbeheerflow;
 - doeldata wordt pas gebruikt nadat `doelen` zelf die rij via RLS teruggeeft.
 
 RLS/privacyrisico:
@@ -746,6 +748,10 @@ server action, RPC, migratie of doelmutatie wordt gebouwd.
 Fase 2 Stap 2L voegt de centrale `beantwoord_doelacceptatie`-RPC toe met
 rollback-pgTAP-dekking en een kleine TypeScript-helper. De UI blijft read-only:
 er zijn nog geen acceptatie-, weiger- of later-bekijken-knoppen in `/mijn-dag`.
+Fase 2 Stap 2M sluit die helper aan op `/mijn-dag`: `voorgesteld` toont
+accepteren, weigeren en later bekijken; `later_bekijken` toont alleen
+accepteren en weigeren. Deze acties verschijnen alleen bij het eigen profiel en
+blijven via de RPC/RLS-laag lopen.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -777,25 +783,21 @@ Reasoningniveau: extra hoog.
 Browsertesten: nee.
 Het gedeelde lokale testwachtwoord is niet nodig.
 
-## 13. Voorstel voor Fase 2 Stap 2M
+## 13. Voorstel voor Fase 2 Stap 2N
 
 Voorgesteld doel:
 
-- bouw nog geen brede doelenmodule, maar sluit doelacceptatie-acties compact
-  aan op `/mijn-dag`;
-- gebruik uitsluitend de Stap 2L-helper/RPC;
-- toon acties alleen bij het eigen profiel;
-- toon bij `voorgesteld` accepteren, weigeren en later bekijken;
-- toon bij `later_bekijken` alleen accepteren en weigeren;
-- houd `geaccepteerd`, `geweigerd`, `verlopen` en andermans profielperspectief
-  read-only;
-- voeg componenttests toe voor zichtbaarheid, foutafhandeling en het ontbreken
-  van knoppen buiten de toegestane statussen.
+- voeg resetbare browserdata of een lichte browser-smokevoorbereiding toe voor
+  Mijn dag-acties, zonder echte persoonsgegevens of secrets;
+- test nog geen brede doelenmodule;
+- houd de smoke beperkt tot login, eigen profiel, zichtbaarheid van
+  doelacceptatie-acties en veilige afwezigheid bij andermans profiel;
+- raak geen remote Supabase-project en geen service-role aan.
 
-Aanbevolen model: GPT-5.5 Codex.
-Reden: deze stap raakt UI-gating, persoonlijke regie, statusgedrag en veilige
-koppeling op de al bewezen RPC.
-Reasoningniveau: extra hoog.
-Browsertesten: nee; componenttests zijn genoeg zolang er geen resetbare
-browserdata voor doelacceptatie-acties is.
-Het gedeelde lokale testwachtwoord is niet nodig.
+Aanbevolen model: GPT-5.3 Codex.
+Reden: de RPC/RLS- en UI-laag zijn al gebouwd; de volgende stap is vooral
+testdata, resetbaarheid en een kleine browserroute zonder nieuwe domeinlogica.
+Reasoningniveau: hoog.
+Browsertesten: ja, maar alleen als resetbare lokale data beschikbaar is.
+Het gedeelde lokale testwachtwoord is alleen runtime nodig wanneer de browser
+daadwerkelijk inlogt.

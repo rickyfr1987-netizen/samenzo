@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import MijnDagPage from "@/app/mijn-dag/page";
@@ -15,6 +15,11 @@ import {
 } from "@/src/lib/mijn-dag/items";
 import { fetchOpenMomentProposalsForProfile } from "@/src/lib/voorstellen/items";
 import { fetchVisibleTimelineItems } from "@/src/lib/tijdlijn/items";
+import {
+  acceptDoelacceptatie,
+  bekijkDoelacceptatieLater,
+  weigerDoelacceptatie
+} from "@/src/lib/doelacceptaties/actions";
 import {
   createSamzoContext,
   currentDayIsoAt,
@@ -56,6 +61,12 @@ vi.mock("@/src/lib/voorstellen/actions", () => ({
   declineVoorstel: vi.fn()
 }));
 
+vi.mock("@/src/lib/doelacceptaties/actions", () => ({
+  acceptDoelacceptatie: vi.fn(),
+  bekijkDoelacceptatieLater: vi.fn(),
+  weigerDoelacceptatie: vi.fn()
+}));
+
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
 const fetchMijnDagAcceptedGoalItemsMock = vi.mocked(
   fetchMijnDagAcceptedGoalItems
@@ -72,6 +83,9 @@ const fetchOpenMomentProposalsForProfileMock = vi.mocked(
   fetchOpenMomentProposalsForProfile
 );
 const fetchVisibleTimelineItemsMock = vi.mocked(fetchVisibleTimelineItems);
+const acceptDoelacceptatieMock = vi.mocked(acceptDoelacceptatie);
+const bekijkDoelacceptatieLaterMock = vi.mocked(bekijkDoelacceptatieLater);
+const weigerDoelacceptatieMock = vi.mocked(weigerDoelacceptatie);
 
 describe("Mijn dag overzicht", () => {
   beforeEach(() => {
@@ -85,6 +99,9 @@ describe("Mijn dag overzicht", () => {
     fetchMijnDagTaskItemsMock.mockReset();
     fetchOpenMomentProposalsForProfileMock.mockReset();
     fetchVisibleTimelineItemsMock.mockReset();
+    acceptDoelacceptatieMock.mockReset();
+    bekijkDoelacceptatieLaterMock.mockReset();
+    weigerDoelacceptatieMock.mockReset();
     fetchMijnDagAcceptedGoalItemsMock.mockResolvedValue([]);
     fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([]);
     fetchMijnDagGoalAttentionItemsMock.mockResolvedValue([]);
@@ -571,7 +588,7 @@ describe("Mijn dag overzicht", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("toont read-only doelen onder aandacht zonder doelacceptatie-acties", async () => {
+  it("toont doelacceptatie-acties alleen bij toegestane doel-attenties voor eigen profiel", async () => {
     fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
     fetchMijnDagItemsMock.mockResolvedValue([]);
     fetchMijnDagTaskItemsMock.mockResolvedValue([]);
@@ -621,6 +638,12 @@ describe("Mijn dag overzicht", () => {
     ]);
     fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
     fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+    acceptDoelacceptatieMock.mockResolvedValue({
+      goalId: "doel-voorgesteld",
+      id: "acceptatie-voorgesteld",
+      profileId: SAM_PROFILE_ID,
+      status: "geaccepteerd"
+    });
 
     render(<MijnDagPage />);
 
@@ -633,6 +656,12 @@ describe("Mijn dag overzicht", () => {
 
     expect(proposedGoalLink).toHaveAttribute("href", "/doelen/doel-voorgesteld");
     expect(laterGoalLink).toHaveAttribute("href", "/doelen/doel-later");
+    const proposedGoalCard = proposedGoalLink.closest("article");
+    const laterGoalCard = laterGoalLink.closest("article");
+    if (!proposedGoalCard || !laterGoalCard) {
+      throw new Error("Goal cards not found");
+    }
+
     expect(
       screen.getByText("Doel onder aandacht: voorgesteld")
     ).toBeInTheDocument();
@@ -640,13 +669,163 @@ describe("Mijn dag overzicht", () => {
       screen.getByText("Doel onder aandacht: later bekijken")
     ).toBeInTheDocument();
     expect(screen.getAllByText("Aandacht")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "Accepteren" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Afwijzen" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Later bekijken/i })).not.toBeInTheDocument();
+    expect(
+      within(proposedGoalCard).getByRole("button", { name: "Accepteren" })
+    ).toBeInTheDocument();
+    expect(
+      within(proposedGoalCard).getByRole("button", { name: "Weigeren" })
+    ).toBeInTheDocument();
+    expect(
+      within(proposedGoalCard).getByRole("button", { name: "Later bekijken" })
+    ).toBeInTheDocument();
+    expect(
+      within(laterGoalCard).getByRole("button", { name: "Accepteren" })
+    ).toBeInTheDocument();
+    expect(
+      within(laterGoalCard).getByRole("button", { name: "Weigeren" })
+    ).toBeInTheDocument();
+    expect(
+      within(laterGoalCard).queryByRole("button", { name: "Later bekijken" })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(proposedGoalCard).getByRole("button", { name: "Accepteren" })
+    );
+
+    await waitFor(() => {
+      expect(acceptDoelacceptatieMock).toHaveBeenCalledWith({
+        acceptatieId: "acceptatie-voorgesteld",
+        profielId: SAM_PROFILE_ID
+      });
+    });
+    expect(weigerDoelacceptatieMock).not.toHaveBeenCalled();
+    expect(bekijkDoelacceptatieLaterMock).not.toHaveBeenCalled();
+    expect(await screen.findByText("Het doel is geaccepteerd."))
+      .toBeInTheDocument();
     expect(fetchMijnDagGoalAttentionItemsMock).toHaveBeenCalledWith(
       SAM_PROFILE_ID,
       expect.any(Date)
     );
+  });
+
+  it("toont geen doelacceptatieknoppen in andermans profielperspectief", async () => {
+    const samContext = createSamzoContext();
+    const ownProfile = samContext.currentProfiel as CurrentSamzoProfiel;
+    const milanProfile: CurrentSamzoProfiel = {
+      ...ownProfile,
+      id: MILAN_PROFILE_ID,
+      persoon_id: ownProfile.persoon_id ?? "10000000-0000-4000-8000-000000000000",
+      weergavenaam: "Milan Medewerker"
+    };
+
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createSamzoContext({
+        currentProfiel: milanProfile,
+        ownProfiel: ownProfile,
+        profielen: [milanProfile, ownProfile]
+      })
+    );
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchMijnDagGoalAttentionItemsMock.mockResolvedValue([
+      {
+        acceptanceId: "acceptatie-milan",
+        acceptanceStatus: "voorgesteld",
+        categoryName: "Doel licht",
+        description: "Alleen kijken vanuit dit profiel.",
+        endsAt: null,
+        goalId: "doel-milan",
+        id: "doelacceptatie-acceptatie-milan",
+        isAllDay: false,
+        location: null,
+        reasons: [
+          {
+            label: "Doel onder aandacht",
+            status: "voorgesteld",
+            type: "aandacht"
+          }
+        ],
+        startsAt: currentDayIsoAt(9),
+        status: "voorgesteld",
+        title: "Doel in bekeken profiel"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Doel in bekeken profiel" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Accepteren" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Weigeren" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Later bekijken" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Doelacceptatie niet beschikbaar voor dit bekeken profiel.")
+    ).toBeInTheDocument();
+    expect(acceptDoelacceptatieMock).not.toHaveBeenCalled();
+  });
+
+  it("toont een rustige foutmelding wanneer een doelacceptatieactie mislukt", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchMijnDagGoalAttentionItemsMock.mockResolvedValue([
+      {
+        acceptanceId: "acceptatie-fout",
+        acceptanceStatus: "voorgesteld",
+        categoryName: "Doel licht",
+        description: "Actie faalt veilig.",
+        endsAt: null,
+        goalId: "doel-fout",
+        id: "doelacceptatie-acceptatie-fout",
+        isAllDay: false,
+        location: null,
+        reasons: [
+          {
+            label: "Doel onder aandacht",
+            status: "voorgesteld",
+            type: "aandacht"
+          }
+        ],
+        startsAt: currentDayIsoAt(9),
+        status: "voorgesteld",
+        title: "Doel met foutpad"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+    acceptDoelacceptatieMock.mockRejectedValue(
+      new Error("Je kunt deze doelacceptatieactie niet uitvoeren met dit profiel.")
+    );
+
+    render(<MijnDagPage />);
+
+    const goalLink = await screen.findByRole("link", {
+      name: "Doel met foutpad"
+    });
+    const goalCard = goalLink.closest("article");
+    if (!goalCard) {
+      throw new Error("Goal card not found");
+    }
+
+    fireEvent.click(
+      within(goalCard).getByRole("button", { name: "Accepteren" })
+    );
+
+    expect(
+      await screen.findByText(
+        "Je kunt deze doelacceptatieactie niet uitvoeren met dit profiel."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/row-level security/i)).not.toBeInTheDocument();
   });
 
   it("toont geaccepteerde doelen als read-only persoonlijk doelitem", async () => {
