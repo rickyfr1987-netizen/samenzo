@@ -394,24 +394,6 @@ begin
     bas_persoon
   );
 
-  insert into public.deelnames (
-    id,
-    moment_id,
-    profiel_id,
-    status,
-    aangemeld_door_persoon_id,
-    aangemeld_vanuit_profiel_id,
-    status_updated_at
-  ) values (
-    '89020000-0000-4000-8000-000000000003',
-    '89010000-0000-4000-8000-000000000004',
-    sam_profiel,
-    'voorgesteld',
-    bas_persoon,
-    bas_profiel,
-    '2026-06-01 08:25:00+02'
-  );
-
   insert into public.voorstellen (
     id,
     type,
