@@ -5,13 +5,15 @@ Supabase/Postgres-context. De uitvoerbare SQL-tests staan in
 `supabase/tests/database/`, omdat `supabase test db` daar pgTAP-bestanden leest.
 Vitest-mocks bewijzen UI-gedrag, maar geen database-afdwinging.
 
-Fase 1 Stap 1B bouwt nog geen volledige RLS-suite. De eerste bewijslaag is:
+Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
 
 - lokale reset gebruikt `supabase/seed.sql` als entrypoint;
 - de leidende testdata komt uit de migratie-seedlijn met vijf kernprofielen;
 - `npm run test:rls` voert `supabase test db --local supabase/tests/database`
   uit;
 - `documents_rls.test.sql` bevat een positieve en negatieve documenten-case;
+- `voorstellen_rls.test.sql` bevat positieve en negatieve voorstellen-cases en
+  een gecontroleerde RPC-case voor `beantwoord_moment_voorstel`;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -26,16 +28,21 @@ Runtimebewijs:
 - Playwright en browserflows vallen buiten deze stap;
 - het gedeelde lokale testwachtwoord is niet nodig voor deze CI-route.
 
-Volgende aanbevolen RLS-scenario's na deze eerste basis:
+Bewezen domeinen:
 
-1. Voorstellen: ontvangend profiel mag een open momentvoorstel beantwoorden;
-   voorsteller, support en beheer mogen persoonlijke acceptatie/weigering niet
-   namens het profiel uitvoeren.
-2. Gasttoegang: Gijs Gast ziet alleen expliciete gastcontext.
-3. Documenten: zichtbaarheid volgt groep/context en lekt niet via koppelingen.
-4. Begeleidingsnotities: beheer/medewerker/context mogen volgens policy;
+1. Documenten: Milan kan het gepubliceerde medewerkersdocument zien; Sam niet.
+2. Voorstellen: Sam kan zijn eigen open voorstel zien en via de RPC weigeren;
+   Gijs ziet Sams voorstel niet; Bas kan het voorstel niet namens Sam
+   beantwoorden.
+
+Volgende aanbevolen RLS-scenario's na deze basis:
+
+1. Gasttoegang: Gijs Gast ziet alleen expliciete gastcontext.
+2. Documenten: zichtbaarheid verder uitbreiden naar groep/context en gekoppelde
+   items.
+3. Begeleidingsnotities: beheer/medewerker/context mogen volgens policy;
    regulier lid en gast krijgen geen brede toegang.
-5. Supportvragen: requester en support zien/muteren alleen de toegestane rijen.
+4. Supportvragen: requester en support zien/muteren alleen de toegestane rijen.
 
 Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
 policy te hebben. Dit blijft bewust onopgelost in Stap 1A.

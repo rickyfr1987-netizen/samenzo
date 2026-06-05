@@ -1,7 +1,8 @@
 # Supabase Tests
 
-Deze map bevat Supabase-specifieke testbestanden. Fase 1 Stap 1B voegt de
-eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`.
+Deze map bevat Supabase-specifieke testbestanden. Fase 1 Stap 1B voegde de
+eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`; Fase 1
+Stap 1C breidt die basis uit naar voorstellen.
 
 Draaien:
 
@@ -27,6 +28,12 @@ Huidige RLS-basis:
 - `supabase/seed/017_seed_dev_data.sql` wordt niet automatisch geladen;
 - `documents_rls.test.sql` koppelt tijdelijke lokale Auth-users in een rollback-
   transactie en test documenten-RLS voor Milan en Sam;
+- `voorstellen_rls.test.sql` koppelt tijdelijke lokale Auth-users in een
+  rollback-transactie en test voorstellen-RLS voor Sam, Gijs en Bas;
+- voorstellen-RLS bewijst dat het ontvangende profiel een open voorstel ziet,
+  een niet-betrokken profiel dat voorstel niet ziet, Bas het voorstel niet
+  namens Sam kan beantwoorden en Sam zijn eigen voorstel via de RPC kan
+  weigeren;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 
