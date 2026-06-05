@@ -56,8 +56,11 @@ Supabase/Postgres-context.
 Documenten-RLS is het eerste bewezen domein; voorstellen-RLS is het tweede
 bewezen domein; gastcontext-RLS is het derde bewezen domein; minimale
 begeleidingsnotities-RLS is het vierde bewezen domein; minimale
-supportvragen-RLS is het vijfde bewezen domein. De centrale matrix en
-besluitvorming staan in `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
+supportvragen-RLS is het vijfde bewezen domein. Fase 2 Stap 2C voegt daar een
+eerste Mijn dag-compositie-RLS-suite aan toe voor deelname, rolbezetting, open
+momentvoorstel, read-only taakrelatie en profielgerichte aandacht. De centrale
+matrix en besluitvorming staan in
+`docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
 De Shadow cloud-pc kan deze lokale Supabase-runtime pas bewijzen zodra
 Docker/WSL2 gezond is. Tot die tijd gebruikt Fase 1B
@@ -147,6 +150,7 @@ Bewezen RLS-domeinen:
 | Gastcontext | Gijs kan een expliciet gasttoegankelijk moment en zijn eigen gastdeelname zien; Gijs kan een bewonersmoment en intern medewerkersdocument niet zien. |
 | Begeleidingsnotities | Milan kan een notitie in een toegestane momentcontext aanmaken en zien; Sam kan die niet zien of aanmaken; Gijs kan die als gast niet zien. |
 | Supportvragen | Sam kan zijn eigen supportvraag zien; Sanne kan die als systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag niet zien of muteren. |
+| Mijn dag-compositie | Rollback-testdata bewijst dat Sam eigen deelname, open momentvoorstel, eigen taakrelatie en profielgerichte aandacht ziet; Milan eigen rolbezetting en momentcontext ziet; Gijs Sams persoonlijke relaties/aandacht niet ziet; groepscontext alleen geen profielgerichte Mijn dag-aandacht is. |
 
 Aanbevolen volgorde:
 
@@ -154,13 +158,15 @@ Aanbevolen volgorde:
 | --- | --- |
 | 1 | Supabase CLI-validatie lokaal voorbereiden via help/status/reset-checks zonder remote project te raken. |
 | 2 | Lokale Supabase-testdatabase starten, resetten en `npm run test:rls` draaien. |
-| 3 | RLS-scenario's uitbreiden voor documentencontexten en latere begeleidingsnotitie-/supportflows. |
+| 3 | RLS-scenario's uitbreiden voor documentencontexten, latere begeleidingsnotitie-/supportflows en de volgende Mijn dag-compositie-onderdelen. |
 | 4 | Alleen testdata gebruiken die idempotent, fictief en development-only is. |
 | 5 | Geen service-role gebruiken om gewoon gebruikersgedrag te bewijzen; tijdelijke Auth-koppelingen horen in rollback-testsetup. |
 
 De minimale begeleidingsnotities- en supportvragen-RLS-tests ronden die
-domeinen niet functioneel af. Realistische individuele contexten, detailflows,
-supportreacties en volledige sluitflows blijven later, na Fase 2.
+domeinen niet functioneel af. De Mijn dag-compositie-RLS-test bouwt geen UI en
+test nog geen frontend-query; hij bewijst alleen de databasegrenzen voor de
+eerste veilige compositiepaden. Realistische individuele contexten,
+detailflows, supportreacties en volledige sluitflows blijven later, na Fase 2.
 
 Fase 1 is nog niet volledig afgerond. Voor afsluiting blijven minimaal
 Playwright-authbasis, resetbare browserdata en de mini-audit

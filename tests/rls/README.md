@@ -20,6 +20,9 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
   contextgebonden begeleidingsnotities;
 - `supportvragen_rls.test.sql` bevat minimale requester/support/negatieve
   profielcases voor lichte supportvragen;
+- `mijn_dag_compositie_rls.test.sql` bevat de eerste Mijn dag-compositiegrenzen
+  voor deelname, rolbezetting, open momentvoorstel, read-only taakrelatie en
+  profielgerichte aandacht;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -53,6 +56,10 @@ Bewezen domeinen:
 5. Supportvragen: Sam kan zijn eigen supportvraag zien; Sanne kan die als
    systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag
    niet zien of muteren.
+6. Mijn dag-compositie: Sam ziet eigen deelname, open momentvoorstel,
+   taakrelatie en profielgerichte aandacht; Milan ziet eigen rolbezetting en
+   momentcontext; Gijs ziet Sams persoonlijke relaties/aandacht niet;
+   groepscontext alleen is geen profielgerichte Mijn dag-aandacht.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
@@ -62,6 +69,9 @@ Volgende aanbevolen RLS-scenario's na deze basis:
    contexten en volledige flows na Fase 2.
 3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
    ticketsysteem of chatlaag te introduceren.
+4. Mijn dag-compositie: later uitbreiden met persoonlijke momenten,
+   document-attenties en doelen onder aandacht nadat de benodigde policies,
+   testdata en specificaties expliciet zijn toegevoegd.
 
 Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
 policy te hebben. Dit blijft bewust onopgelost in Stap 1A.

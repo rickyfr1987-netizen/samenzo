@@ -624,6 +624,12 @@ De browserlaag mag deze scenario's pas muterend gebruiken nadat resetbaarheid is
 vastgelegd. Het gedeelde lokale testwachtwoord is voor deze specificatie niet
 nodig.
 
+Fase 2 Stap 2C voegt voor de eerste veilige compositie rollback-pgTAP-testdata
+toe in `supabase/tests/database/mijn_dag_compositie_rls.test.sql`. Die test
+dekt deelname, rolbezetting, open momentvoorstel, read-only taakrelatie en
+profielgerichte aandacht af. Persoonlijke momenten, document-attenties en doelen
+onder aandacht blijven bewust buiten deze eerste suite.
+
 ## 11. Aanbevolen bouwvolgorde
 
 1. Voeg resetbare testdata toe voor Mijn dag-compositie zonder nieuwe UI.

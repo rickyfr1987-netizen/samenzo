@@ -3,8 +3,9 @@
 Deze map bevat Supabase-specifieke testbestanden. Fase 1 Stap 1B voegde de
 eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`; Fase 1
 Stap 1C breidde die basis uit naar voorstellen, Stap 1D voegde gastcontext toe,
-Stap 1E voegde minimale begeleidingsnotities-RLS toe en Stap 1F voegt minimale
-supportvragen-RLS toe.
+Stap 1E voegde minimale begeleidingsnotities-RLS toe, Stap 1F voegde minimale
+supportvragen-RLS toe en Fase 2 Stap 2C voegt een eerste
+Mijn dag-compositie-RLS-suite toe.
 
 Draaien:
 
@@ -53,13 +54,21 @@ Huidige RLS-basis:
 - supportvragen-RLS bewijst dat Sam zijn eigen supportvraag kan zien, Sanne als
   systeemondersteuner de supportvraag kan zien en in behandeling kan zetten,
   en Gijs de supportvraag niet kan zien of muteren;
+- `mijn_dag_compositie_rls.test.sql` maakt eigen rollback-testdata voor de
+  eerste veilige Mijn dag-compositie;
+- Mijn dag-compositie-RLS bewijst dat Sam zijn eigen deelname, open
+  momentvoorstel, taakrelatie en profielgerichte aandacht ziet, Milan zijn
+  eigen rolbezetting en momentcontext ziet, Gijs Sams persoonlijke relaties en
+  aandacht niet ziet, en groepscontext alleen geen profielgerichte Mijn dag-
+  aandacht is;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 
-Deze minimale tests rond begeleidingsnotities en supportvragen ronden die
-domeinen niet functioneel af. Support blijft hier lichte tijdlijn-support en
-wordt geen ticketmodule. Realistische individuele contexten en volledige flows
-blijven bewust later, na Fase 2.
+Deze minimale tests rond begeleidingsnotities, supportvragen en Mijn dag-
+compositie ronden die domeinen niet functioneel af. De Mijn dag-test bouwt geen
+UI, geen query-compositielaag en geen browserflow. Support blijft hier lichte
+tijdlijn-support en wordt geen ticketmodule. Realistische individuele contexten
+en volledige flows blijven bewust later, na Fase 2.
 
 De compacte Fase 1 RLS-bewijsmatrix met CI-route, open risico's en resterende
 Fase 1-stappen staat in `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
