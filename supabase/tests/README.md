@@ -2,7 +2,8 @@
 
 Deze map bevat Supabase-specifieke testbestanden. Fase 1 Stap 1B voegde de
 eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`; Fase 1
-Stap 1C breidt die basis uit naar voorstellen.
+Stap 1C breidde die basis uit naar voorstellen en Stap 1D voegt gastcontext
+toe.
 
 Draaien:
 
@@ -34,6 +35,11 @@ Huidige RLS-basis:
   een niet-betrokken profiel dat voorstel niet ziet, Bas het voorstel niet
   namens Sam kan beantwoorden en Sam zijn eigen voorstel via de RPC kan
   weigeren;
+- `gastcontext_rls.test.sql` koppelt tijdelijke lokale Auth-users in een
+  rollback-transactie en test gastcontext-RLS voor Gijs Gast;
+- gastcontext-RLS bewijst dat Gijs een expliciet gasttoegankelijk moment en
+  zijn eigen gastdeelname kan zien, maar geen bewonersmoment of intern
+  medewerkersdocument;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 
