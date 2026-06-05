@@ -18,6 +18,8 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
   voor momenten, eigen deelname en interne informatie;
 - `begeleidingsnotities_rls.test.sql` bevat minimale privacycases voor
   contextgebonden begeleidingsnotities;
+- `supportvragen_rls.test.sql` bevat minimale requester/support/negatieve
+  profielcases voor lichte supportvragen;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -44,14 +46,18 @@ Bewezen domeinen:
 4. Begeleidingsnotities: Milan kan een notitie in een toegestane momentcontext
    aanmaken en zien; Sam kan die notitie niet zien of aanmaken; Gijs kan die
    notitie als gast niet zien.
+5. Supportvragen: Sam kan zijn eigen supportvraag zien; Sanne kan die als
+   systeemondersteuner zien en in behandeling zetten; Sam kan niet sluiten
+   zonder supportantwoord; Gijs kan de supportvraag niet zien of muteren.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
 1. Documenten: zichtbaarheid verder uitbreiden naar groep/context en gekoppelde
    items.
-2. Supportvragen: requester en support zien/muteren alleen de toegestane rijen.
-3. Begeleidingsnotities: later uitbreiden met realistische individuele
+2. Begeleidingsnotities: later uitbreiden met realistische individuele
    contexten en volledige flows na Fase 2.
+3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
+   ticketsysteem of chatlaag te introduceren.
 
 Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
 policy te hebben. Dit blijft bewust onopgelost in Stap 1A.

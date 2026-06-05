@@ -50,7 +50,8 @@ of authfixtures. De uitvoerbare RLS-basis staat in `supabase/tests/database/`
 en draait via `npm run test:rls` tegen een lokale Supabase/Postgres-context.
 Documenten-RLS is het eerste bewezen domein; voorstellen-RLS is het tweede
 bewezen domein; gastcontext-RLS is het derde bewezen domein; minimale
-begeleidingsnotities-RLS is het vierde bewezen domein.
+begeleidingsnotities-RLS is het vierde bewezen domein; minimale
+supportvragen-RLS is het vijfde bewezen domein.
 
 De Shadow cloud-pc kan deze lokale Supabase-runtime pas bewijzen zodra
 Docker/WSL2 gezond is. Tot die tijd gebruikt Fase 1B
@@ -132,6 +133,7 @@ Bewezen RLS-domeinen:
 | Voorstellen | Sam kan zijn eigen open voorstel zien en via `beantwoord_moment_voorstel` weigeren; Gijs ziet Sams voorstel niet; Bas kan niet namens Sam antwoorden. |
 | Gastcontext | Gijs kan een expliciet gasttoegankelijk moment en zijn eigen gastdeelname zien; Gijs kan een bewonersmoment en intern medewerkersdocument niet zien. |
 | Begeleidingsnotities | Milan kan een notitie in een toegestane momentcontext aanmaken en zien; Sam kan die niet zien of aanmaken; Gijs kan die als gast niet zien. |
+| Supportvragen | Sam kan zijn eigen supportvraag zien; Sanne kan die als systeemondersteuner zien en in behandeling zetten; Sam kan niet sluiten zonder supportantwoord; Gijs kan de supportvraag niet zien of muteren. |
 
 Aanbevolen volgorde:
 
@@ -139,10 +141,10 @@ Aanbevolen volgorde:
 | --- | --- |
 | 1 | Supabase CLI-validatie lokaal voorbereiden via help/status/reset-checks zonder remote project te raken. |
 | 2 | Lokale Supabase-testdatabase starten, resetten en `npm run test:rls` draaien. |
-| 3 | RLS-scenario's uitbreiden voor supportvragen en latere begeleidingsnotitieflows. |
+| 3 | RLS-scenario's uitbreiden voor documentencontexten en latere begeleidingsnotitie-/supportflows. |
 | 4 | Alleen testdata gebruiken die idempotent, fictief en development-only is. |
 | 5 | Geen service-role gebruiken om gewoon gebruikersgedrag te bewijzen; tijdelijke Auth-koppelingen horen in rollback-testsetup. |
 
-De minimale begeleidingsnotities-RLS-test rondt begeleidingsnotities niet
-functioneel af. Realistische individuele contexten, detailflows en volledige
-begeleidingsnotitie-scenario's blijven later, na Fase 2.
+De minimale begeleidingsnotities- en supportvragen-RLS-tests ronden die
+domeinen niet functioneel af. Realistische individuele contexten, detailflows,
+supportreacties en volledige sluitflows blijven later, na Fase 2.
