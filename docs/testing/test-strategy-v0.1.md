@@ -46,9 +46,12 @@ Bronnen van waarheid:
 ## Actuele Fase 1-status
 
 De snelle testbasis is aanwezig en gebruikt Vitest, Testing Library en jsdom.
-Playwright is geconfigureerd, maar bevat nog geen reproduceerbare browserflows
-of authfixtures. De uitvoerbare RLS-basis staat in `supabase/tests/database/`
-en draait via `npm run test:rls` tegen een lokale Supabase/Postgres-context.
+Playwright is geconfigureerd en heeft een minimale auth-rooktestbasis voor
+`/beheer/dev-login` en `/mijn-dag`. Die test gebruikt alleen runtime
+environmentvariabelen en slaat zichzelf over als het gedeelde lokale
+testwachtwoord niet runtime beschikbaar is. De uitvoerbare RLS-basis staat in
+`supabase/tests/database/` en draait via `npm run test:rls` tegen een lokale
+Supabase/Postgres-context.
 Documenten-RLS is het eerste bewezen domein; voorstellen-RLS is het tweede
 bewezen domein; gastcontext-RLS is het derde bewezen domein; minimale
 begeleidingsnotities-RLS is het vierde bewezen domein; minimale
@@ -77,6 +80,11 @@ Wachtwoorden, service-role keys, Auth secrets en echte persoonsgegevens mogen
 niet in tests, seeddata, documentatie, prompts, traces of logs worden
 opgeslagen. Browsertesten kunnen later runtime het gedeelde lokale
 testwachtwoord nodig hebben.
+
+Voor de minimale Playwright-authrooktest worden lokaal alleen variabelenamen
+gedocumenteerd: `SAMZO_E2E_EMAIL`, `SAMZO_E2E_PASSWORD` en
+`SAMZO_E2E_PROFILE_NAME`. Waarden horen buiten Git en buiten CI-artifacts te
+blijven. Playwright screenshots, video en traces staan uit in de basisconfig.
 
 ## Naamconventies
 
