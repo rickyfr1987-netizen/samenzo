@@ -260,18 +260,20 @@ function upsertMomentItem(
   const existingItem = itemsByMomentId.get(moment.id);
 
   if (existingItem) {
-    const currentPriority = existingItem.reasons[0]
-      ? MIJN_DAG_REASON_PRIORITY[existingItem.reasons[0].type]
-      : 0;
-    const nextPriority = MIJN_DAG_REASON_PRIORITY[reason.type];
+    const alreadyHasReason = existingItem.reasons.some(
+      (itemReason) =>
+        itemReason.type === reason.type &&
+        itemReason.label === reason.label &&
+        itemReason.status === reason.status
+    );
 
-    if (nextPriority > currentPriority) {
-      existingItem.reasons = [reason];
-      return;
-    }
-
-    if (nextPriority === currentPriority) {
+    if (!alreadyHasReason) {
       existingItem.reasons.push(reason);
+      existingItem.reasons.sort(
+        (first, second) =>
+          MIJN_DAG_REASON_PRIORITY[second.type] -
+          MIJN_DAG_REASON_PRIORITY[first.type]
+      );
     }
 
     return;
