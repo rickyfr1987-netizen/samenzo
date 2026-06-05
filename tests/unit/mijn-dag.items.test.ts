@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 import {
+  fetchMijnDagAcceptedGoalItems,
   fetchMijnDagDocumentAttentionItems,
   fetchMijnDagGoalAttentionItems,
   fetchMijnDagItems,
@@ -545,6 +546,167 @@ describe("Mijn dag itemcompositie", () => {
     } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
 
     const items = await fetchMijnDagGoalAttentionItems(
+      "profiel-sam",
+      selectedDay
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it("toont geaccepteerde doelen read-only als persoonlijk doelitem", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        doelacceptaties: [
+          {
+            data: [
+              {
+                id: "acceptatie-periode",
+                doel_id: "doel-periode",
+                status: "geaccepteerd",
+                created_at: "2026-06-08T08:00:00.000Z",
+                geaccepteerd_at: "2026-06-08T08:00:00.000Z",
+                later_bekijken_at: null
+              },
+              {
+                id: "acceptatie-zonder-periode",
+                doel_id: "doel-zonder-periode",
+                status: "geaccepteerd",
+                created_at: "2026-06-10T12:00:00.000Z",
+                geaccepteerd_at: "2026-06-10T12:00:00.000Z",
+                later_bekijken_at: null
+              },
+              {
+                id: "acceptatie-verborgen",
+                doel_id: "doel-verborgen",
+                status: "geaccepteerd",
+                created_at: "2026-06-10T13:00:00.000Z",
+                geaccepteerd_at: "2026-06-10T13:00:00.000Z",
+                later_bekijken_at: null
+              },
+              {
+                id: "acceptatie-toekomst",
+                doel_id: "doel-toekomst",
+                status: "geaccepteerd",
+                created_at: "2026-06-08T08:00:00.000Z",
+                geaccepteerd_at: "2026-06-08T08:00:00.000Z",
+                later_bekijken_at: null
+              },
+              {
+                id: "acceptatie-voorgesteld",
+                doel_id: "doel-voorgesteld",
+                status: "voorgesteld",
+                created_at: "2026-06-10T08:00:00.000Z",
+                geaccepteerd_at: null,
+                later_bekijken_at: null
+              }
+            ],
+            error: null
+          }
+        ],
+        doelen: [
+          {
+            data: [
+              {
+                id: "doel-periode",
+                titel: "Gezond ritme oefenen",
+                beschrijving: "Rustig persoonlijk doel binnen de periode.",
+                status: "actief",
+                start_at: "2026-06-09T00:00:00.000Z",
+                eind_at: "2026-06-12T23:00:00.000Z",
+                categorieen: { naam: "Doel licht" }
+              },
+              {
+                id: "doel-zonder-periode",
+                titel: "Vandaag gekozen doel",
+                beschrijving: "Geen periode, dus alleen acceptatiedag.",
+                status: "actief",
+                start_at: null,
+                eind_at: null,
+                categorieen: { naam: "Doel licht" }
+              },
+              {
+                id: "doel-toekomst",
+                titel: "Toekomstig doel",
+                beschrijving: "Valt nog buiten de gekozen dag.",
+                status: "actief",
+                start_at: "2026-06-11T09:00:00.000Z",
+                eind_at: "2026-06-12T09:00:00.000Z",
+                categorieen: { naam: "Doel licht" }
+              }
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagAcceptedGoalItems(
+      "profiel-sam",
+      selectedDay
+    );
+
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.id)).toEqual([
+      "geaccepteerd-doel-acceptatie-periode",
+      "geaccepteerd-doel-acceptatie-zonder-periode"
+    ]);
+    expect(items[0]).toMatchObject({
+      goalId: "doel-periode",
+      title: "Gezond ritme oefenen",
+      startsAt: "2026-06-09T00:00:00.000Z",
+      status: "geaccepteerd"
+    });
+    expect(items[0].reasons).toEqual([
+      {
+        type: "doel",
+        label: "Persoonlijk doel",
+        status: "geaccepteerd"
+      }
+    ]);
+    expect(items[1]).toMatchObject({
+      goalId: "doel-zonder-periode",
+      startsAt: "2026-06-10T12:00:00.000Z"
+    });
+  });
+
+  it("toont een geaccepteerd doel zonder periode niet dagelijks na de acceptatiedag", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        doelacceptaties: [
+          {
+            data: [
+              {
+                id: "acceptatie-gisteren",
+                doel_id: "doel-zonder-periode",
+                status: "geaccepteerd",
+                created_at: "2026-06-09T12:00:00.000Z",
+                geaccepteerd_at: "2026-06-09T12:00:00.000Z",
+                later_bekijken_at: null
+              }
+            ],
+            error: null
+          }
+        ],
+        doelen: [
+          {
+            data: [
+              {
+                id: "doel-zonder-periode",
+                titel: "Gisteren gekozen doel",
+                beschrijving: null,
+                status: "actief",
+                start_at: null,
+                eind_at: null,
+                categorieen: { naam: "Doel licht" }
+              }
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagAcceptedGoalItems(
       "profiel-sam",
       selectedDay
     );

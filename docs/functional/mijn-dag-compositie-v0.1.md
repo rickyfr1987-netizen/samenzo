@@ -87,7 +87,7 @@ Mijn dag is niet:
 | Taak | `taakuitvoerders` + `taken` + `lijsten` | Eerst read-only | Afvinken later na resetdata | Read policies aanwezig, mutaties apart |
 | Aandachtspunt | Tijdlijn, Signalen, Support, Voorstellen | Bouwen als compositie | Afhandelen later per bron | Bron-RLS leidend |
 | Document onder aandacht | Profielgerichte `tijdlijnberichten`/`signalen` + `documenten` | Read-only voorbereiden | Document openen alleen als document-RLS toestaat | Document-attentie RLS bewezen in Stap 2F |
-| Doel onder aandacht | `doelacceptaties` + daarna `doelen` | Read-only zichtbaar | Geen acceptatieknoppen in Mijn dag | Doel-attentie RLS bewezen in Stap 2H; UI zichtbaar in Stap 2I |
+| Doel onder aandacht / persoonlijk doel | `doelacceptaties` + daarna `doelen` | Read-only zichtbaar | Geen acceptatieknoppen in Mijn dag | Doel-attentie RLS bewezen in Stap 2H; UI zichtbaar in Stap 2I; geaccepteerd doelitem in Stap 2J |
 | Tijdlijn-/support-aandacht | `tijdlijnberichten`, `supportvragen`, `signalen` | Beperkt handhaven | Geen ticketsysteem | Minimale support-RLS bewezen |
 
 ## 6. Per itemtype
@@ -494,14 +494,19 @@ Status/voorstelregel:
 - `voorgesteld` verschijnt als actieve read-only aandacht;
 - `later_bekijken` mag actieve read-only aandacht blijven;
 - `geweigerd` verdwijnt uit actieve Mijn dag;
-- `geaccepteerd` wordt nog niet als doel onder aandacht gebouwd en kan later
-  een persoonlijk doelitem worden;
+- `geaccepteerd` wordt geen aandachtkaart, maar een read-only persoonlijk
+  doelitem;
 - acceptatie/weigering moet vergelijkbaar met voorstelregie verlopen.
 
 Datumregel:
 
-- gebruik `start_at`, `eind_at` of attentiedatum, maar dit is nog niet
-  vastgelegd.
+- `voorgesteld` en `later_bekijken` gebruiken de attentiedatum uit
+  `doelacceptaties`;
+- `geaccepteerd` verschijnt vanaf acceptatie binnen de doelperiode;
+- als een geaccepteerd doel geen periode heeft, verschijnt het alleen op de
+  acceptatiedag;
+- een tijdloos geaccepteerd doel wordt niet dagelijks getoond zonder apart
+  ontwerpbesluit.
 
 Actiebeleid:
 
@@ -510,6 +515,8 @@ Actiebeleid:
   eigen voorgestelde doelacceptatie beantwoorden;
 - Stap 2H bereidt read-only doelen onder aandacht voor via
   `doelacceptaties`, zonder acceptatieknoppen of doelmutaties;
+- Stap 2J toont geaccepteerde doelen als read-only persoonlijk doelitem, zonder
+  voortgang, dashboard of rapportage;
 - doeldata wordt pas gebruikt nadat `doelen` zelf die rij via RLS teruggeeft.
 
 RLS/privacyrisico:
@@ -530,8 +537,8 @@ Testdata nodig:
 
 MVP-keuze:
 
-- read-only kaart is zichtbaar in Mijn dag; acceptatie/weigering en beheerflow
-  blijven uitgesteld.
+- read-only aandachtkaart en persoonlijk doelitem zijn zichtbaar in Mijn dag;
+  acceptatie/weigering en beheerflow blijven uitgesteld.
 
 ### 6.10 Tijdlijn-/support-aandacht
 
@@ -611,7 +618,7 @@ MVP-keuze:
 
 | Gat | Effect | Vereist voor bouw |
 | --- | --- | --- |
-| Doelen onder aandacht nog zonder acceptatieflow | Read-only kaart is zichtbaar en RLS-bewijs is voorbereid, maar persoonlijke acceptatie/weigering ontbreekt bewust | Voorstelgestuurde of RPC-gestuurde acceptatieflow in aparte vervolgstap |
+| Doelen zonder acceptatieflow | Read-only aandachtkaart en geaccepteerd doelitem zijn zichtbaar en RLS-bewijs is voorbereid, maar persoonlijke acceptatie/weigering ontbreekt bewust | Voorstelgestuurde of RPC-gestuurde acceptatieflow in aparte vervolgstap |
 | Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
 | Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
@@ -661,7 +668,10 @@ read-only `fetchMijnDagGoalAttentionItems` voor. Alleen `voorgesteld` en
 `later_bekijken` zijn actieve doel-attenties; `geweigerd` en `geaccepteerd`
 worden niet als actieve doelkaart samengesteld. Fase 2 Stap 2I toont deze
 read-only doel-attenties in `/mijn-dag`, zonder acceptatieknoppen,
-weigerknoppen, later-bekijken-knop of formulier.
+weigerknoppen, later-bekijken-knop of formulier. Fase 2 Stap 2J toont
+`geaccepteerd` als read-only persoonlijk doelitem. Geaccepteerde doelen
+verschijnen binnen de doelperiode vanaf acceptatie; zonder doelperiode alleen
+op de acceptatiedag.
 
 ## 11. Aanbevolen bouwvolgorde
 

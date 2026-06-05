@@ -10,7 +10,7 @@ import TijdlijnPage from "@/app/tijdlijn/page";
 import { fetchCurrentSamzoContext, type CurrentSamzoContext, type CurrentSamzoPersoon } from "@/src/lib/samzo/current-context";
 import { fetchOpenMomentProposalsForProfile } from "@/src/lib/voorstellen/items";
 import { fetchVisibleTimelineItems, type TimelineItem } from "@/src/lib/tijdlijn/items";
-import { fetchMijnDagDocumentAttentionItems, fetchMijnDagGoalAttentionItems, fetchMijnDagItems, fetchMijnDagTaskItems, type MijnDagItem, type MijnDagTaskItem } from "@/src/lib/mijn-dag/items";
+import { fetchMijnDagAcceptedGoalItems, fetchMijnDagDocumentAttentionItems, fetchMijnDagGoalAttentionItems, fetchMijnDagItems, fetchMijnDagTaskItems, type MijnDagItem, type MijnDagTaskItem } from "@/src/lib/mijn-dag/items";
 import { fetchPlanningFilterCategories, fetchPlanningMoments, type PlanningMoment } from "@/src/lib/planning/moments";
 import { fetchVisibleDocumenten, type DocumentSummary } from "@/src/lib/documenten/items";
 import { fetchProfileById, fetchVisibleProfielen, type VisibleLid, type VisibleLidDetail } from "@/src/lib/leden/items";
@@ -40,6 +40,7 @@ vi.mock("@/src/lib/mijn-dag/items", async (importOriginal) => {
 
   return {
     ...actual,
+    fetchMijnDagAcceptedGoalItems: vi.fn(),
     fetchMijnDagDocumentAttentionItems: vi.fn(),
     fetchMijnDagGoalAttentionItems: vi.fn(),
     fetchMijnDagItems: vi.fn(),
@@ -89,6 +90,7 @@ vi.mock("@/src/lib/leden/items", () => ({
 }));
 
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
+const fetchMijnDagAcceptedGoalItemsMock = vi.mocked(fetchMijnDagAcceptedGoalItems);
 const fetchMijnDagDocumentAttentionItemsMock = vi.mocked(fetchMijnDagDocumentAttentionItems);
 const fetchMijnDagGoalAttentionItemsMock = vi.mocked(fetchMijnDagGoalAttentionItems);
 const fetchMijnDagItemsMock = vi.mocked(fetchMijnDagItems);
@@ -267,6 +269,7 @@ beforeEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
   fetchCurrentSamzoContextMock.mockReset();
+  fetchMijnDagAcceptedGoalItemsMock.mockReset();
   fetchMijnDagDocumentAttentionItemsMock.mockReset();
   fetchMijnDagGoalAttentionItemsMock.mockReset();
   fetchMijnDagItemsMock.mockReset();
@@ -284,6 +287,7 @@ beforeEach(() => {
   searchParams.delete("to");
   searchParams.delete("category");
   searchParams.delete("status");
+  fetchMijnDagAcceptedGoalItemsMock.mockResolvedValue([]);
   fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([]);
   fetchMijnDagGoalAttentionItemsMock.mockResolvedValue([]);
   window.localStorage.setItem("samzo.activeProfileId", GUEST_PROFILE_ID);

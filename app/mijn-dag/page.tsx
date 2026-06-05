@@ -12,11 +12,13 @@ import {
   type VoorstelItem
 } from "@/src/lib/voorstellen/items";
 import {
+  fetchMijnDagAcceptedGoalItems,
   fetchMijnDagDocumentAttentionItems,
   fetchMijnDagGoalAttentionItems,
   fetchMijnDagItems,
   fetchMijnDagTaskItems,
   getLocalDayRange,
+  type MijnDagAcceptedGoalItem,
   type MijnDagDocumentAttentionItem,
   type MijnDagGoalAttentionItem,
   type MijnDagItem,
@@ -37,7 +39,7 @@ type MijnDagProposalCardItem = MijnDagItem & {
 };
 
 type MijnDagDisplayItem = MijnDagProposalCardItem & {
-  kind: "moment" | "task" | "attention";
+  kind: "moment" | "task" | "attention" | "goal";
   linkHref: string | null;
 };
 
@@ -292,6 +294,15 @@ function mapGoalAttentionItems(items: MijnDagGoalAttentionItem[]) {
   }));
 }
 
+function mapAcceptedGoalItems(items: MijnDagAcceptedGoalItem[]) {
+  return items.map((item) => ({
+    ...item,
+    kind: "goal" as const,
+    linkHref: `/doelen/${item.goalId}`,
+    proposal: null
+  }));
+}
+
 function mapTimelineAttentionItems(
   timelineItems: TimelineItem[],
   activeProfileId: string,
@@ -402,6 +413,7 @@ export default function MijnDagPage() {
         tasks,
         documentAttentionItems,
         goalAttentionItems,
+        acceptedGoalItems,
         timelineItems
       ] = await Promise.all([
         fetchMijnDagItems(currentProfiel.id, date),
@@ -409,6 +421,7 @@ export default function MijnDagPage() {
         fetchMijnDagTaskItems(currentProfiel.id, date),
         fetchMijnDagDocumentAttentionItems(currentProfiel.id, date),
         fetchMijnDagGoalAttentionItems(currentProfiel.id, date),
+        fetchMijnDagAcceptedGoalItems(currentProfiel.id, date),
         fetchVisibleTimelineItems()
       ]);
 
@@ -422,7 +435,8 @@ export default function MijnDagPage() {
         ...mergedItems,
         ...mapTaskItems(tasks),
         ...mapDocumentAttentionItems(documentAttentionItems),
-        ...mapGoalAttentionItems(goalAttentionItems)
+        ...mapGoalAttentionItems(goalAttentionItems),
+        ...mapAcceptedGoalItems(acceptedGoalItems)
       ]
         .concat(
           mapTimelineAttentionItems(
@@ -707,7 +721,9 @@ export default function MijnDagPage() {
                   ? "Moment"
                   : item.kind === "task"
                     ? "Taak"
-                    : "Aandacht"}
+                    : item.kind === "goal"
+                      ? "Doel"
+                      : "Aandacht"}
               </div>
               <div className="mijn-dag-card__reasons">
                 {item.reasons.map((reason) => (

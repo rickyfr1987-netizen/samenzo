@@ -49,7 +49,12 @@ type DocumentForMijnDag = Pick<
 
 type GoalAcceptanceForMijnDag = Pick<
   Tables<"doelacceptaties">,
-  "id" | "doel_id" | "status" | "created_at" | "later_bekijken_at"
+  | "id"
+  | "doel_id"
+  | "status"
+  | "created_at"
+  | "geaccepteerd_at"
+  | "later_bekijken_at"
 >;
 
 type GoalForMijnDag = Pick<
@@ -106,7 +111,8 @@ export type MijnDagItemReason = {
     | "rolbezetting"
     | "voorstel"
     | "taak"
-    | "aandacht";
+    | "aandacht"
+    | "doel";
   label: string;
   status: string;
 };
@@ -142,13 +148,20 @@ export type MijnDagGoalAttentionItem = MijnDagItem & {
   acceptanceStatus: Tables<"doelacceptaties">["status"];
 };
 
+export type MijnDagAcceptedGoalItem = MijnDagItem & {
+  goalId: string;
+  acceptanceId: string;
+  acceptedAt: string;
+};
+
 const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
   persoonlijk_moment: 1,
   deelname: 1,
   rolbezetting: 2,
   voorstel: 3,
   taak: 0,
-  aandacht: 0
+  aandacht: 0,
+  doel: 0
 };
 
 export function getLocalDayRange(date: Date) {
@@ -181,6 +194,14 @@ function isTimestampOnDay(value: string | null, day: Date) {
   const timestamp = new Date(value);
 
   return timestamp >= start && timestamp < end;
+}
+
+function isDayWithinRange(day: Date, startAt: string, endAt: string | null) {
+  const { start, end } = getLocalDayRange(day);
+  const rangeStart = new Date(startAt);
+  const rangeEnd = endAt ? new Date(endAt) : null;
+
+  return end > rangeStart && (!rangeEnd || start <= rangeEnd);
 }
 
 function collectDocumentAttentionIds(
@@ -232,6 +253,16 @@ function collectGoalAttentionIds(
   ];
 }
 
+function collectAcceptedGoalIds(acceptanceRows: GoalAcceptanceForMijnDag[]) {
+  return [
+    ...new Set(
+      acceptanceRows
+        .filter((row) => row.status === "geaccepteerd")
+        .map((row) => row.doel_id)
+    )
+  ];
+}
+
 function isActiveSignalDocumentAttention(
   row: DocumentAttentionSignalRow,
   profielId: string,
@@ -256,6 +287,32 @@ function isActiveGoalAttention(row: GoalAcceptanceForMijnDag, day: Date) {
     MIJN_DAG_GOAL_ATTENTION_STATUSES.includes(row.status) &&
     isTimestampOnDay(attentionAt, day)
   );
+}
+
+function isAcceptedGoalActiveOnDay({
+  acceptance,
+  day,
+  goal
+}: {
+  acceptance: GoalAcceptanceForMijnDag;
+  day: Date;
+  goal: GoalForMijnDag;
+}) {
+  if (acceptance.status !== "geaccepteerd") {
+    return false;
+  }
+
+  const acceptedAt = acceptance.geaccepteerd_at ?? acceptance.created_at;
+
+  if (!goal.start_at && !goal.eind_at) {
+    return isTimestampOnDay(acceptedAt, day);
+  }
+
+  const visibleFrom = [goal.start_at, acceptedAt]
+    .filter((value): value is string => Boolean(value))
+    .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0];
+
+  return isDayWithinRange(day, visibleFrom, goal.eind_at);
 }
 
 const MIJN_DAG_TASK_ASSIGNEE_STATUSES: Tables<"taakuitvoerders">["status"][] = [
@@ -595,6 +652,84 @@ export async function fetchMijnDagGoalAttentionItems(
     });
 }
 
+export async function fetchMijnDagAcceptedGoalItems(
+  profielId: string,
+  day: Date
+): Promise<MijnDagAcceptedGoalItem[]> {
+  const supabase = getSupabaseBrowserClient();
+
+  const acceptanceResult = await supabase
+    .from("doelacceptaties")
+    .select("id, doel_id, status, created_at, geaccepteerd_at, later_bekijken_at")
+    .eq("profiel_id", profielId)
+    .eq("status", "geaccepteerd");
+
+  if (acceptanceResult.error) {
+    throw new Error(acceptanceResult.error.message);
+  }
+
+  const acceptanceRows = (acceptanceResult.data ?? []) as GoalAcceptanceForMijnDag[];
+  const goalIds = collectAcceptedGoalIds(acceptanceRows);
+
+  if (goalIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("doelen")
+    .select(
+      `
+        id,
+        titel,
+        beschrijving,
+        status,
+        start_at,
+        eind_at,
+        categorieen (
+          naam
+        )
+      `
+    )
+    .in("id", goalIds)
+    .is("archived_at", null)
+    .neq("status", "gearchiveerd");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const goalsById = new Map<string, GoalForMijnDag>(
+    ((data ?? []) as GoalForMijnDag[]).map((goal) => [goal.id, goal])
+  );
+
+  return acceptanceRows
+    .map((acceptance) => {
+      const goal = goalsById.get(acceptance.doel_id);
+
+      if (
+        !goal ||
+        !isAcceptedGoalActiveOnDay({
+          acceptance,
+          day,
+          goal
+        })
+      ) {
+        return null;
+      }
+
+      return mapAcceptedGoalRow({ acceptance, goal });
+    })
+    .filter((item): item is MijnDagAcceptedGoalItem => item !== null)
+    .sort((first, second) => {
+      const firstTime = first.startsAt ? new Date(first.startsAt).getTime() : 0;
+      const secondTime = second.startsAt
+        ? new Date(second.startsAt).getTime()
+        : 0;
+
+      return firstTime - secondTime;
+    });
+}
+
 function mapDocumentAttentionRow({
   createdAt,
   document,
@@ -669,6 +804,39 @@ function mapGoalAttentionRow({
         type: "aandacht",
         label: "Doel onder aandacht",
         status: acceptance.status
+      }
+    ]
+  };
+}
+
+function mapAcceptedGoalRow({
+  acceptance,
+  goal
+}: {
+  acceptance: GoalAcceptanceForMijnDag;
+  goal: GoalForMijnDag;
+}): MijnDagAcceptedGoalItem {
+  const acceptedAt = acceptance.geaccepteerd_at ?? acceptance.created_at;
+  const startsAt = goal.start_at ?? acceptedAt;
+
+  return {
+    id: `geaccepteerd-doel-${acceptance.id}`,
+    goalId: goal.id,
+    acceptanceId: acceptance.id,
+    acceptedAt,
+    title: goal.titel,
+    description: goal.beschrijving,
+    startsAt,
+    endsAt: goal.eind_at,
+    isAllDay: false,
+    location: null,
+    status: "geaccepteerd",
+    categoryName: goal.categorieen?.naam ?? "Doel",
+    reasons: [
+      {
+        type: "doel",
+        label: "Persoonlijk doel",
+        status: "geaccepteerd"
       }
     ]
   };

@@ -66,7 +66,9 @@ Fase 2 Stap 2G voegt minimale `doelacceptaties`-RLS toe voor eigen profiel,
 zonder Mijn dag-doelenkaart of doelacceptatieformulier. Fase 2 Stap 2H voegt
 read-only doel-attenties toe als compositiepad waarbij doel-RLS zelfstandig
 leidend blijft. Fase 2 Stap 2I maakt die doel-attenties zichtbaar in de Mijn
-dag UI met componentdekking, zonder acceptatie- of weigeracties.
+dag UI met componentdekking, zonder acceptatie- of weigeracties. Fase 2 Stap
+2J toont geaccepteerde doelen als read-only persoonlijk doelitem, zonder
+dashboard, voortgang of mutaties.
 De centrale matrix en besluitvorming staan in
 `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
@@ -164,6 +166,7 @@ Bewezen RLS-domeinen:
 | Doelacceptaties | Rollback-testdata bewijst dat een profiel alleen eigen voorgestelde doelacceptaties kan zien en beantwoorden wanneer het gekoppelde doel via `can_view_doel` zichtbaar is; verborgen doelen, andere profielen, Bas en insert blijven gesloten. |
 | Mijn dag doel-attenties | Rollback-testdata bewijst dat eigen `doelacceptaties` met status `voorgesteld` of `later_bekijken` alleen een read-only doel-attentie worden wanneer het gekoppelde doel via doel-RLS zichtbaar is; `geweigerd` en `geaccepteerd` worden niet als actieve doel-attentie samengesteld. |
 | Mijn dag doel-attentie UI | Testing Library bewijst dat read-only doel-attenties zichtbaar worden als aandachtkaart, naar de read-only doelroute linken en geen acceptatie-, weiger- of later-bekijken-knoppen renderen. |
+| Mijn dag geaccepteerde doelen | Unit- en componenttests bewijzen dat `geaccepteerd` als read-only persoonlijk doelitem verschijnt binnen de doelperiode vanaf acceptatie, of zonder periode alleen op de acceptatiedag; voorgestelde/later-bekijken doelen blijven aandachtitems. |
 
 Aanbevolen volgorde:
 

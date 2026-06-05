@@ -7,6 +7,7 @@ import {
   type CurrentSamzoProfiel
 } from "@/src/lib/samzo/current-context";
 import {
+  fetchMijnDagAcceptedGoalItems,
   fetchMijnDagDocumentAttentionItems,
   fetchMijnDagGoalAttentionItems,
   fetchMijnDagItems,
@@ -34,6 +35,7 @@ vi.mock("@/src/lib/mijn-dag/items", async (importOriginal) => {
 
   return {
     ...actual,
+    fetchMijnDagAcceptedGoalItems: vi.fn(),
     fetchMijnDagDocumentAttentionItems: vi.fn(),
     fetchMijnDagGoalAttentionItems: vi.fn(),
     fetchMijnDagItems: vi.fn(),
@@ -55,6 +57,9 @@ vi.mock("@/src/lib/voorstellen/actions", () => ({
 }));
 
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
+const fetchMijnDagAcceptedGoalItemsMock = vi.mocked(
+  fetchMijnDagAcceptedGoalItems
+);
 const fetchMijnDagDocumentAttentionItemsMock = vi.mocked(
   fetchMijnDagDocumentAttentionItems
 );
@@ -73,12 +78,14 @@ describe("Mijn dag overzicht", () => {
     window.localStorage.clear();
     vi.clearAllMocks();
     fetchCurrentSamzoContextMock.mockReset();
+    fetchMijnDagAcceptedGoalItemsMock.mockReset();
     fetchMijnDagDocumentAttentionItemsMock.mockReset();
     fetchMijnDagGoalAttentionItemsMock.mockReset();
     fetchMijnDagItemsMock.mockReset();
     fetchMijnDagTaskItemsMock.mockReset();
     fetchOpenMomentProposalsForProfileMock.mockReset();
     fetchVisibleTimelineItemsMock.mockReset();
+    fetchMijnDagAcceptedGoalItemsMock.mockResolvedValue([]);
     fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([]);
     fetchMijnDagGoalAttentionItemsMock.mockResolvedValue([]);
     window.localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, SAM_PROFILE_ID);
@@ -642,6 +649,57 @@ describe("Mijn dag overzicht", () => {
     );
   });
 
+  it("toont geaccepteerde doelen als read-only persoonlijk doelitem", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchMijnDagAcceptedGoalItemsMock.mockResolvedValue([
+      {
+        acceptanceId: "acceptatie-geaccepteerd",
+        acceptedAt: currentDayIsoAt(8),
+        categoryName: "Doel licht",
+        description: "Alleen veilige doelinformatie via doel-RLS.",
+        endsAt: currentDayIsoAt(18),
+        goalId: "doel-geaccepteerd",
+        id: "geaccepteerd-doel-acceptatie-geaccepteerd",
+        isAllDay: false,
+        location: null,
+        reasons: [
+          {
+            label: "Persoonlijk doel",
+            status: "geaccepteerd",
+            type: "doel"
+          }
+        ],
+        startsAt: currentDayIsoAt(8),
+        status: "geaccepteerd",
+        title: "Eigen weekritme"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    const acceptedGoalLink = await screen.findByRole("link", {
+      name: "Eigen weekritme"
+    });
+
+    expect(acceptedGoalLink).toHaveAttribute("href", "/doelen/doel-geaccepteerd");
+    expect(screen.getByText("Persoonlijk doel: geaccepteerd")).toBeInTheDocument();
+    expect(screen.getByText("Doel")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Doel onder aandacht: geaccepteerd")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accepteren" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Afwijzen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Later bekijken/i })).not.toBeInTheDocument();
+    expect(fetchMijnDagAcceptedGoalItemsMock).toHaveBeenCalledWith(
+      SAM_PROFILE_ID,
+      expect.any(Date)
+    );
+  });
+
   it("herlaadt data direct na profielwissel", async () => {
     const samContext = createSamzoContext();
     const ownProfile = samContext.currentProfiel as CurrentSamzoProfiel;
@@ -701,6 +759,8 @@ describe("Mijn dag overzicht", () => {
     ]);
     fetchMijnDagTaskItemsMock.mockResolvedValueOnce([]);
     fetchMijnDagTaskItemsMock.mockResolvedValueOnce([]);
+    fetchMijnDagAcceptedGoalItemsMock.mockResolvedValueOnce([]);
+    fetchMijnDagAcceptedGoalItemsMock.mockResolvedValueOnce([]);
     fetchMijnDagGoalAttentionItemsMock.mockResolvedValueOnce([]);
     fetchMijnDagGoalAttentionItemsMock.mockResolvedValueOnce([]);
     fetchOpenMomentProposalsForProfileMock.mockResolvedValueOnce([]);
@@ -730,6 +790,7 @@ describe("Mijn dag overzicht", () => {
     await waitFor(() => {
       expect(fetchMijnDagItemsMock).toHaveBeenCalledTimes(2);
       expect(fetchMijnDagTaskItemsMock).toHaveBeenCalledTimes(2);
+      expect(fetchMijnDagAcceptedGoalItemsMock).toHaveBeenCalledTimes(2);
       expect(fetchMijnDagDocumentAttentionItemsMock).toHaveBeenCalledTimes(2);
       expect(fetchMijnDagGoalAttentionItemsMock).toHaveBeenCalledTimes(2);
       expect(fetchVisibleTimelineItemsMock).toHaveBeenCalledTimes(2);
