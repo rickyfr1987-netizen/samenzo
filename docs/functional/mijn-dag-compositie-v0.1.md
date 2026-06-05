@@ -517,6 +517,8 @@ Actiebeleid:
   `doelacceptaties`, zonder acceptatieknoppen of doelmutaties;
 - Stap 2J toont geaccepteerde doelen als read-only persoonlijk doelitem, zonder
   voortgang, dashboard of rapportage;
+- Stap 2L voegt een smalle RPC-actielaag toe voor eigen doelacceptaties, maar
+  nog geen knoppen, formulier of doelenbeheerflow;
 - doeldata wordt pas gebruikt nadat `doelen` zelf die rij via RLS teruggeeft.
 
 RLS/privacyrisico:
@@ -554,10 +556,9 @@ Actiespecificatie voor latere bouw:
   omzetten naar `geaccepteerd`, `geweigerd` of `later_bekijken`;
 - `later_bekijken` blijft een actieve persoonlijke aandacht. Productmatig is
   het logisch dat het eigen profiel dit later alsnog naar `geaccepteerd` of
-  `geweigerd` kan brengen. De huidige minimale updatepolicy ondersteunt die
-  tweede stap nog niet, omdat zij alleen oude rijen met status `voorgesteld`
-  mag muteren. Als Stap 2L deze route wil bouwen, moet RLS/RPC die overgang
-  expliciet uitbreiden en testen;
+  `geweigerd` kan brengen. Stap 2L ondersteunt deze route expliciet via de
+  centrale RPC en RLS-testdekking. Nogmaals later bekijken vanuit
+  `later_bekijken` blijft niet toegestaan;
 - `geaccepteerd` is een read-only persoonlijk doelitem en geen actieve
   acceptatie-aandacht meer. Opnieuw accepteren, weigeren of later bekijken is
   geen actieve Mijn dag-actie;
@@ -742,6 +743,9 @@ verschijnen binnen de doelperiode vanaf acceptatie; zonder doelperiode alleen
 op de acceptatiedag. Fase 2 Stap 2K specificeert alleen de latere
 doelacceptatie-acties en bevestigt dat er nog geen knoppen, formulier,
 server action, RPC, migratie of doelmutatie wordt gebouwd.
+Fase 2 Stap 2L voegt de centrale `beantwoord_doelacceptatie`-RPC toe met
+rollback-pgTAP-dekking en een kleine TypeScript-helper. De UI blijft read-only:
+er zijn nog geen acceptatie-, weiger- of later-bekijken-knoppen in `/mijn-dag`.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -773,24 +777,25 @@ Reasoningniveau: extra hoog.
 Browsertesten: nee.
 Het gedeelde lokale testwachtwoord is niet nodig.
 
-## 13. Voorstel voor Fase 2 Stap 2L
+## 13. Voorstel voor Fase 2 Stap 2M
 
 Voorgesteld doel:
 
-- bouw nog geen brede doelbeheerflow, maar kies eerst de veilige mutatielaag
-  voor doelacceptatie-acties;
-- voeg een RPC of server action toe voor eigen profielacties op
-  `doelacceptaties`;
-- ondersteun minimaal `voorgesteld` naar `geaccepteerd`, `geweigerd` en
-  `later_bekijken`;
-- beslis expliciet of `later_bekijken` daarna ook naar `geaccepteerd` en
-  `geweigerd` mag;
-- voeg pgTAP/RLS- en unitdekking toe voordat UI-knoppen worden gebouwd.
+- bouw nog geen brede doelenmodule, maar sluit doelacceptatie-acties compact
+  aan op `/mijn-dag`;
+- gebruik uitsluitend de Stap 2L-helper/RPC;
+- toon acties alleen bij het eigen profiel;
+- toon bij `voorgesteld` accepteren, weigeren en later bekijken;
+- toon bij `later_bekijken` alleen accepteren en weigeren;
+- houd `geaccepteerd`, `geweigerd`, `verlopen` en andermans profielperspectief
+  read-only;
+- voeg componenttests toe voor zichtbaarheid, foutafhandeling en het ontbreken
+  van knoppen buiten de toegestane statussen.
 
 Aanbevolen model: GPT-5.5 Codex.
-Reden: deze stap raakt persoonlijke regie, RLS-statusovergangen, timestamps en
-RPC/server-action ontwerp.
+Reden: deze stap raakt UI-gating, persoonlijke regie, statusgedrag en veilige
+koppeling op de al bewezen RPC.
 Reasoningniveau: extra hoog.
-Browsertesten: nee, tenzij resetbare doelacceptatie-testdata vooraf expliciet
-klaarstaat.
-Het gedeelde lokale testwachtwoord is niet nodig voor de mutatielaag.
+Browsertesten: nee; componenttests zijn genoeg zolang er geen resetbare
+browserdata voor doelacceptatie-acties is.
+Het gedeelde lokale testwachtwoord is niet nodig.

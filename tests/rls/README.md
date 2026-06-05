@@ -28,8 +28,9 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
 - `mijn_dag_document_attenties_rls.test.sql` bevat profielgerichte
   document-attenties uit tijdlijnberichten en signalen, inclusief de grens dat
   een zichtbare attentie geen verboden document opent;
-- `doelacceptaties_rls.test.sql` bevat minimale eigen-profiel grenzen voor
-  doelacceptaties rond zichtbare en verborgen doelen;
+- `doelacceptaties_rls.test.sql` bevat eigen-profiel grenzen en de
+  `beantwoord_doelacceptatie`-RPC voor doelacceptaties rond zichtbare en
+  verborgen doelen;
 - `mijn_dag_doel_attenties_rls.test.sql` bevat read-only Mijn dag-grenzen voor
   doel-attenties via doelacceptaties en doel-RLS;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
@@ -75,10 +76,12 @@ Bewezen domeinen:
 8. Mijn dag document-attenties: Sam ziet profielgerichte document-attenties
    alleen als het gekoppelde document via document-RLS zichtbaar is; Gijs ziet
    Sams attentie niet; groepscontext alleen is geen persoonlijke documentkaart.
-9. Doelacceptaties: Sam ziet en beantwoordt alleen eigen voorgestelde
-   doelacceptaties wanneer het gekoppelde doel via `can_view_doel` zichtbaar
-   is; verborgen doelen blijven dicht, Gijs en Bas kunnen Sams acceptatie niet
-   lezen of muteren, en insert blijft gesloten.
+9. Doelacceptaties: Sam ziet en beantwoordt alleen eigen doelacceptaties
+   wanneer het gekoppelde doel via `can_view_doel` zichtbaar is; de RPC staat
+   `voorgesteld` naar `geaccepteerd`, `geweigerd` of `later_bekijken` toe en
+   staat `later_bekijken` naar `geaccepteerd` of `geweigerd` toe. Verborgen
+   doelen blijven dicht, Gijs, Bas en Milan kunnen Sams acceptatie niet lezen
+   of muteren, herbeantwoorden blijft gesloten en insert blijft gesloten.
 10. Mijn dag doel-attenties: Sam krijgt alleen read-only doel-attenties voor
     eigen `voorgesteld` en `later_bekijken` acceptaties wanneer het doel zelf
     via doel-RLS zichtbaar is; verborgen doelen, Gijs, `geweigerd` en
@@ -92,9 +95,8 @@ Volgende aanbevolen RLS-scenario's na deze basis:
    contexten en volledige flows na Fase 2.
 3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
    ticketsysteem of chatlaag te introduceren.
-4. Mijn dag-compositie: later uitbreiden met UI-weergave voor read-only doelen
-   onder aandacht, zonder acceptatieknoppen of doelmutaties.
+4. Mijn dag-compositie: later uitbreiden met UI-acties voor doelacceptaties op
+   basis van de bewezen RPC, zonder brede doelenmodule of browserflow.
 
-Open RLS-punt: doelen onder aandacht hebben nu RLS-bewijs en read-only
-compositievoorbereiding, maar nog geen zichtbare Mijn dag-doelenkaart,
-acceptatieformulier of muterende flow.
+Open RLS-punt: de doelacceptatie-RPC heeft nu bewijs, maar `/mijn-dag` heeft
+nog geen acceptatieknoppen, acceptatieformulier of browserflow.

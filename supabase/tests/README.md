@@ -9,6 +9,7 @@ Mijn dag-compositie-RLS-suite toe, Fase 2 Stap 2E voegt eigenaar-profiel
 persoonlijke momenten toe als read-only RLS-pad en Fase 2 Stap 2F voegt
 document-attenties toe als read-only RLS-pad. Fase 2 Stap 2G voegt minimale
 `doelacceptaties`-RLS toe en Fase 2 Stap 2H voegt read-only doel-attenties toe.
+Fase 2 Stap 2L voegt de smalle `beantwoord_doelacceptatie`-RPC toe.
 
 Draaien:
 
@@ -78,10 +79,14 @@ Huidige RLS-basis:
   ziet en dat groepscontext alleen geen persoonlijke document-attentie is;
 - `doelacceptaties_rls.test.sql` maakt eigen rollback-testdata voor
   doelacceptaties rond zichtbare en verborgen doelen;
-- doelacceptaties-RLS bewijst dat Sam alleen eigen voorgestelde acceptaties
-  rond een zichtbaar doel kan zien en beantwoorden, dat verborgen gekoppelde
-  doelen geen acceptatie of doelinhoud openen, dat Gijs en Bas niet namens Sam
-  kunnen lezen of muteren, en dat insert gesloten blijft;
+- doelacceptaties-RLS bewijst dat Sam alleen eigen acceptaties rond een
+  zichtbaar doel kan zien en via `beantwoord_doelacceptatie` kan beantwoorden:
+  `voorgesteld` naar `geaccepteerd`, `geweigerd` of `later_bekijken`, en
+  `later_bekijken` naar `geaccepteerd` of `geweigerd`;
+- doelacceptaties-RLS bewijst ook dat verborgen gekoppelde doelen geen
+  acceptatie of doelinhoud openen, dat Gijs, Bas en Milan niet namens Sam
+  kunnen lezen of muteren, dat herbeantwoorden gesloten blijft en dat
+  timestamps per eindstatus consistent zijn;
 - `mijn_dag_doel_attenties_rls.test.sql` maakt eigen rollback-testdata voor
   read-only doelen onder aandacht;
 - doel-attentie-RLS bewijst dat `voorgesteld` en `later_bekijken` actieve
