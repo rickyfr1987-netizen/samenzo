@@ -78,6 +78,9 @@ doelenbeheerflow of browserflow. Fase 2 Stap 2N specificeert directe
 persoonlijke items vanuit Mijn dag zonder implementatie: eigen persoonlijk
 moment is de eerste latere RLS-first kandidaat, begeleider-naar-client blijft
 voorstelgestuurd en persoonlijke taken/aandachtspunten blijven uitgesteld.
+Fase 2 Stap 2O-b heeft nu de smalle eigen-profiel route
+`public.maak_persoonlijk_moment` en bijbehorende pgTAP-/unitdekkingen geleverd,
+zonder UI of plusknop.
 De centrale matrix en besluitvorming staan in
 `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
@@ -170,14 +173,14 @@ Bewezen RLS-domeinen:
 | Begeleidingsnotities | Milan kan een notitie in een toegestane momentcontext aanmaken en zien; Sam kan die niet zien of aanmaken; Gijs kan die als gast niet zien. |
 | Supportvragen | Sam kan zijn eigen supportvraag zien; Sanne kan die als systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag niet zien of muteren. |
 | Mijn dag-compositie | Rollback-testdata bewijst dat Sam eigen deelname, open momentvoorstel, eigen taakrelatie en profielgerichte aandacht ziet; Milan via eigen rolbezetting de gekoppelde momentcontext ziet; Gijs Sams persoonlijke relaties/aandacht niet ziet; groepscontext alleen geen profielgerichte Mijn dag-aandacht is. |
-| Mijn dag persoonlijke momenten | Rollback-testdata bewijst dat eigenaar-profiel momenten zonder deelname zichtbaar zijn voor het juiste profiel, niet lekken naar Gijs, gearchiveerde momenten gesloten blijven en Gijs als gast alleen een eigen persoonlijk moment ziet wanneer `gasttoegang` expliciet aan staat. |
+| Mijn dag persoonlijke momenten | Rollback-testdata bewijst dat eigenaar-profiel momenten zonder deelname zichtbaar zijn voor het juiste profiel, niet lekken naar Gijs, gearchiveerde momenten gesloten blijven en Sam eigen-momenten via `public.maak_persoonlijk_moment` aanmaakt; Gijs als gast ziet alleen eigen gasttoegankelijke persoonlijk momenten wanneer `gasttoegang` expliciet aan staat. |
 | Mijn dag document-attenties | Rollback-testdata bewijst dat profielgerichte document-attenties uit tijdlijnberichten en signalen alleen een documentkaart kunnen worden wanneer het gekoppelde document via document-RLS zichtbaar is; groepscontext alleen wordt geen persoonlijke document-attentie. |
 | Doelacceptaties | Rollback-testdata bewijst dat een profiel alleen eigen voorgestelde doelacceptaties kan zien en beantwoorden wanneer het gekoppelde doel via `can_view_doel` zichtbaar is; verborgen doelen, andere profielen, Bas en insert blijven gesloten. |
 | Mijn dag doel-attenties | Rollback-testdata bewijst dat eigen `doelacceptaties` met status `voorgesteld` of `later_bekijken` alleen een read-only doel-attentie worden wanneer het gekoppelde doel via doel-RLS zichtbaar is; `geweigerd` en `geaccepteerd` worden niet als actieve doel-attentie samengesteld. |
 | Mijn dag doel-attentie UI | Testing Library bewijst dat doel-attenties zichtbaar worden als aandachtkaart, naar de doelroute linken en alleen bij het eigen profiel actieknoppen tonen: `voorgesteld` krijgt accepteren/weigeren/later bekijken, `later_bekijken` alleen accepteren/weigeren. Andermans profielperspectief blijft read-only. |
 | Mijn dag geaccepteerde doelen | Unit- en componenttests bewijzen dat `geaccepteerd` als read-only persoonlijk doelitem verschijnt binnen de doelperiode vanaf acceptatie, of zonder periode alleen op de acceptatiedag; voorgestelde/later-bekijken doelen blijven aandachtitems. |
 | Doelacceptatie-acties | `beantwoord_doelacceptatie` bewijst eigen-profielacties voor `voorgesteld` naar `geaccepteerd`, `geweigerd` en `later_bekijken`, plus `later_bekijken` naar `geaccepteerd` of `geweigerd`; verborgen doelen, andermans profielcontext, beheerder/medewerkercontext, herbeantwoorden en timestampconsistentie blijven gesloten of expliciet bewezen. |
-| Directe persoonlijke items | Nog geen bewijsclaim: Stap 2N specificeert alleen dat eigen persoonlijk moment later via `momenten.eigenaar_profiel_id` RLS-first gebouwd mag worden; taken en aandachtspunten wachten op een expliciete datamodelkeuze. |
+| Directe persoonlijke items | `public.maak_persoonlijk_moment` is in Stap 2O-b als smalle eigen-profiel route afgedekt via pgTAP/RLS en unittests; gastaanmaak, persoonlijke taken en persoonlijke aandachtspunten blijven uitgesteld. |
 
 Aanbevolen volgorde:
 

@@ -24,7 +24,8 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
   voor deelname, rolbezetting, open momentvoorstel, read-only taakrelatie en
   profielgerichte aandacht;
 - `mijn_dag_persoonlijke_momenten_rls.test.sql` bevat eigenaar-profiel
-  persoonlijke momenten zonder deelname, inclusief gastcontextgrenzen;
+  persoonlijke momenten zonder deelname, inclusief owner-only RPC-route (`public.maak_persoonlijk_moment`) en
+  gastcontextgrenzen;
 - `mijn_dag_document_attenties_rls.test.sql` bevat profielgerichte
   document-attenties uit tijdlijnberichten en signalen, inclusief de grens dat
   een zichtbare attentie geen verboden document opent;
@@ -71,8 +72,9 @@ Bewezen domeinen:
    de gekoppelde momentcontext; Gijs ziet Sams persoonlijke relaties/aandacht niet;
    groepscontext alleen is geen profielgerichte Mijn dag-aandacht.
 7. Mijn dag persoonlijke momenten: Sam en Milan zien hun eigen eigenaar-profiel
-   moment zonder deelname; Gijs ziet Sams moment niet; Gijs ziet een eigen
-   persoonlijk moment alleen wanneer `gasttoegang` expliciet aan staat.
+    moment zonder deelname; Sam kan deze alleen aanmaken via
+    `public.maak_persoonlijk_moment`; Gijs ziet Sams moment niet; Gijs ziet een
+    eigen persoonlijk moment alleen wanneer `gasttoegang` expliciet aan staat.
 8. Mijn dag document-attenties: Sam ziet profielgerichte document-attenties
    alleen als het gekoppelde document via document-RLS zichtbaar is; Gijs ziet
    Sams attentie niet; groepscontext alleen is geen persoonlijke documentkaart.

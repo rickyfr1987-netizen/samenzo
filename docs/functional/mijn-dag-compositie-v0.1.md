@@ -261,15 +261,17 @@ Datumregel:
 
 Actiebeleid:
 
-- Stap 2E mag dit read-only tonen nadat RLS-testdata bewijst dat
-  eigenaar-profiel zichtbaarheid correct begrensd is;
-- aanmaken, wijzigen en begeleider-naar-client blijven later voorstelgestuurd.
+- Stap 2E toont dit read-only;
+- Stap 2O-b voert directe eigen-momentaanmaak uit via de
+  `public.maak_persoonlijk_moment(...)` RPC met actieve profielcontrole;
+- direct via tabelinsert of via niet-bevestigde UI-route gebeurt hier niet.
 
 RLS/privacyrisico:
 
 - eigenaar-profiel-zichtbaarheid moet niet per ongeluk persoonlijke momenten
   via Planning breed tonen;
-- profieltoegang moet kijken kunnen toestaan zonder definitief handelen.
+- profieltoegang kan lezen ondersteunen, maar niet namens een ander profiel
+  definitief muteren.
 
 Testdata nodig:
 
@@ -786,7 +788,7 @@ Aanbevolen bouwvolgorde:
 - voorsteltypes voor taken, doelen, documenten en persoonlijke momenten;
 - muterende taakflows vanuit Mijn dag;
 - document onder aandacht als volwaardige UI-flow;
-- persoonlijke momenten aanmaken of wijzigen;
+- directe plusknop en clientinsert-paden voor eigen persoonlijke momentaanmaak;
 - directe persoonlijke plusknop vanuit Mijn dag;
 - persoonlijke taak zonder gekozen lijst-/taakstrategie;
 - persoonlijk aandachtspunt zonder bron-, status- en sluitmodel;
@@ -800,8 +802,9 @@ Aanbevolen bouwvolgorde:
 | Gat | Effect | Vereist voor bouw |
 | --- | --- | --- |
 | Doelen zonder acceptatieflow | Read-only aandachtkaart en geaccepteerd doelitem zijn zichtbaar en RLS-bewijs is voorbereid, maar persoonlijke acceptatie/weigering ontbreekt bewust | Voorstelgestuurde of RPC-gestuurde acceptatieflow in aparte vervolgstap |
-| Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
-| Direct persoonlijk item vanuit Mijn dag nog niet muterend bewezen | Eigen profiel mag later eigen werkelijkheid maken, maar insert/update-grenzen zijn nog niet getest | RLS-first eigen-persoonlijk-momentflow met resetbare testdata |
+| Persoonlijk moment via eigenaar-profiel | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie; directe eigen-aanmaak loopt via `maak_persoonlijk_moment` in 2O-b | `maak_persoonlijk_moment`-RPC en bijbehorende pgTAP-bewijs |
+| Direct persoonlijk item vanuit Mijn dag | Taken en persoonlijk aandachtspunt blijven uitgesteld; alleen directe persoonlijke-momentaanmaak is nu geïmplementeerd | `maak_persoonlijk_moment`-route afgedekt; andere mutaties nog niet |
+| Gast-aanmaak | Voor 2O-b is gastaanmaak van persoonlijke momenten niet geactiveerd | Gast-pad blijft expliciet buiten deze stap; wordt later alleen onder strakke RLS-condities bekeken |
 | Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
 | Mijn dag als samengestelde query niet RLS-getest | Tabel-RLS kan kloppen terwijl compositie privacy lekt | Compositie-scenario's in pgTAP |
@@ -867,8 +870,9 @@ accepteren, weigeren en later bekijken; `later_bekijken` toont alleen
 accepteren en weigeren. Deze acties verschijnen alleen bij het eigen profiel en
 blijven via de RPC/RLS-laag lopen.
 Fase 2 Stap 2N specificeert directe persoonlijke items vanuit Mijn dag zonder
-implementatie. De eerste latere maakflow is eigen persoonlijk moment via
-`momenten.eigenaar_profiel_id`; begeleider-naar-client blijft voorstelgestuurd,
+implementatie. De eerstvolgende gemaakte route voor eigen persoonlijke momenten is
+gestart in 2O-b via `public.maak_persoonlijk_moment`; begeleider-naar-client
+blijft voorstelgestuurd,
 persoonlijke taken blijven lijst-/taakstrategie-afhankelijk en persoonlijke
 aandachtspunten blijven compositie totdat bron, status en sluitgedrag zijn
 gekozen.
@@ -878,8 +882,9 @@ gekozen.
 1. Voeg resetbare testdata toe voor Mijn dag-compositie zonder nieuwe UI.
 2. Voeg pgTAP/RLS-tests toe voor persoonlijke momenten en compositiegrenzen.
 3. Herijk de Mijn dag-query voor eigenaar-profiel-momenten.
-4. Bouw directe eigen persoonlijke momentcreatie pas RLS-first, met insert- en
-   updategrenzen voor het actieve eigen profiel.
+4. Bouw directe eigen persoonlijke momentcreatie RLS-first via
+   `public.maak_persoonlijk_moment` (Stap 2O-b) en met insert-/updategrenzen
+   voor het actieve eigen profiel.
 5. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
 6. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
    Mijn dag-aandacht wordt.
@@ -905,17 +910,19 @@ Reasoningniveau: extra hoog.
 Browsertesten: nee.
 Het gedeelde lokale testwachtwoord is niet nodig.
 
-## 13. Voorstel voor Fase 2 Stap 2O
+## 13. Uitvoering van Fase 2 Stap 2O-b
 
-Voorgesteld doel:
+Uitgevoerd:
 
-- bouw nog geen formulier of plusknop;
-- maak de RLS-first basis voor eigen persoonlijk moment aanmaken vanuit Mijn
-  dag: resetbare testdata, insert-/updatepolicy of RPC-keuze en pgTAP-bewijs;
-- bewijs dat alleen het actieve eigen profiel definitieve persoonlijke momenten
-  kan maken;
-- bewijs dat begeleider-naar-client geen definitieve mutatie mag doen;
-- raak geen remote Supabase-project en geen service-role aan.
+- eigen persoonlijk moment heeft een smalle server-actie/RPC-route gekregen via
+  `public.maak_persoonlijk_moment(...)` (security invoker).
+- directe eigen aanmaak is nu afgedekt met resetbare pgTAP/RLS-asserties en een
+  kleine helperlaag in `src/lib/persoonlijke-momenten/actions.ts`.
+- alleen het eigen actieve profiel kan eigen persoonlijk momentaanmaak uitvoeren;
+- begeleider-naar-client blijft voorstelgestuurd en kan deze route niet gebruiken;
+- gast-aanmaak is in deze stap niet ondersteund;
+- persoonlijke taak en persoonlijke aandachtspunt blijven buiten deze stap;
+- plusknop, formulier en browserflow blijven buiten deze stap.
 
 Aanbevolen model: GPT-5.5 Codex.
 Reden: deze stap raakt persoonlijke werkelijkheid, RLS-mutaties, RPC-keuze en

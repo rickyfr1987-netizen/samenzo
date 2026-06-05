@@ -9,7 +9,8 @@ Mijn dag-compositie-RLS-suite toe, Fase 2 Stap 2E voegt eigenaar-profiel
 persoonlijke momenten toe als read-only RLS-pad en Fase 2 Stap 2F voegt
 document-attenties toe als read-only RLS-pad. Fase 2 Stap 2G voegt minimale
 `doelacceptaties`-RLS toe en Fase 2 Stap 2H voegt read-only doel-attenties toe.
-Fase 2 Stap 2L voegt de smalle `beantwoord_doelacceptatie`-RPC toe.
+Fase 2 Stap 2L voegt de smalle `beantwoord_doelacceptatie`-RPC toe en Stap
+2O-b voegt `maak_persoonlijk_moment` toe als smalle eigen-profiel route met helperlaag.
 
 Draaien:
 
@@ -68,9 +69,10 @@ Huidige RLS-basis:
 - `mijn_dag_persoonlijke_momenten_rls.test.sql` maakt eigen rollback-testdata
   voor eigenaar-profiel persoonlijke momenten zonder deelname;
 - persoonlijke-momenten-RLS bewijst dat Sam en Milan hun eigen eigenaar-profiel
-  moment zien, Gijs Sams moment niet ziet, gearchiveerde eigenaar-momenten
-  gesloten blijven en Gijs als gast alleen een eigen persoonlijk moment ziet
-  wanneer `gasttoegang` expliciet aan staat;
+  moment zien, dat Sam via `public.maak_persoonlijk_moment` eigen persoonlijk
+  momenten kan aanmaken, Gijs Sams moment niet ziet, gearchiveerde
+  eigenaar-momenten gesloten blijven en Gijs als gast alleen een eigen persoonlijk
+  moment ziet wanneer `gasttoegang` expliciet aan staat;
 - `mijn_dag_document_attenties_rls.test.sql` maakt eigen rollback-testdata voor
   profielgerichte document-attenties uit tijdlijnberichten en signalen;
 - document-attentie-RLS bewijst dat Sam een profielgerichte attentie naar een
