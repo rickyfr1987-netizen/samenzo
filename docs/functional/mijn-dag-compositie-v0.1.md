@@ -86,7 +86,7 @@ Mijn dag is niet:
 | Individuele activiteit | Persoonlijk of kleinschalig `moment` | Specificeren voor bouw | Zelf definitief, ander profiel voorstel | Extra RLS-test nodig |
 | Taak | `taakuitvoerders` + `taken` + `lijsten` | Eerst read-only | Afvinken later na resetdata | Read policies aanwezig, mutaties apart |
 | Aandachtspunt | Tijdlijn, Signalen, Support, Voorstellen | Bouwen als compositie | Afhandelen later per bron | Bron-RLS leidend |
-| Document onder aandacht | Attentiekaart + `documenten` | Uitstellen tot attentiemodel | Document openen alleen als RLS toestaat | Documenten-RLS basis bewezen |
+| Document onder aandacht | Profielgerichte `tijdlijnberichten`/`signalen` + `documenten` | Read-only voorbereiden | Document openen alleen als document-RLS toestaat | Document-attentie RLS bewezen in Stap 2F |
 | Doel onder aandacht | `doelen` + later `doelacceptaties` | Uitstellen | Geen doelacceptatie tot policy bestaat | Policygat op `doelacceptaties` |
 | Tijdlijn-/support-aandacht | `tijdlijnberichten`, `supportvragen`, `signalen` | Beperkt handhaven | Geen ticketsysteem | Minimale support-RLS bewezen |
 
@@ -429,7 +429,7 @@ MVP-keuze:
 
 Brondata:
 
-- MVP-light: profielgericht `tijdlijnbericht` of signaal met
+- MVP-light: profielgericht `tijdlijnbericht` of `signaal` met
   `gekoppeld_type = 'document'`;
 - `documenten` blijven aparte inhoudsbron.
 
@@ -439,6 +439,7 @@ Zichtbaarheidsregel:
   is gericht;
 - documentinhoud of documentlink is alleen actief als document-RLS het document
   zichtbaar maakt.
+- groepsgerichte document-aandacht is context, geen persoonlijke Mijn dag-kaart.
 
 Status/voorstelregel:
 
@@ -469,8 +470,9 @@ Testdata nodig:
 
 MVP-keuze:
 
-- uitstellen tot attentiemodel en testdata expliciet zijn. Daarna MVP-light als
-  attentiekaart, niet als documentsectie.
+- Stap 2F bereidt MVP-light read-only voor als attentiekaart, niet als
+  documentsectie;
+- aanmaken, wijzigen en documentbeheer blijven buiten Mijn dag.
 
 ### 6.9 Doelen onder aandacht
 
@@ -598,7 +600,7 @@ MVP-keuze:
 | --- | --- | --- |
 | `doelacceptaties` heeft RLS maar geen policy | Doelacceptatie is functioneel geblokkeerd | Policy + pgTAP-test voor doelen in Mijn dag |
 | Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
-| Document onder aandacht heeft geen vast attentiemodel | Attentie kan documenttoegang lekken of onduidelijk zijn | Attentiedefinitie + document-RLS-test |
+| Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
 | Mijn dag als samengestelde query niet RLS-getest | Tabel-RLS kan kloppen terwijl compositie privacy lekt | Compositie-scenario's in pgTAP |
 
@@ -631,7 +633,12 @@ dekt deelname, rolbezetting, open momentvoorstel, read-only taakrelatie en
 profielgerichte aandacht af. Fase 2 Stap 2E voegt
 `supabase/tests/database/mijn_dag_persoonlijke_momenten_rls.test.sql` toe voor
 persoonlijke eigenaar-profiel momenten zonder deelname, inclusief gastcontext.
-Document-attenties en doelen onder aandacht blijven bewust buiten deze suites.
+Fase 2 Stap 2F voegt
+`supabase/tests/database/mijn_dag_document_attenties_rls.test.sql` toe voor
+profielgerichte document-attenties uit tijdlijnberichten en signalen. Die suite
+bewijst dat een zichtbare attentie geen verboden document opent, en dat
+groepscontext alleen geen persoonlijke document-attentie wordt. Doelen onder
+aandacht blijven bewust buiten deze suites.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -639,8 +646,8 @@ Document-attenties en doelen onder aandacht blijven bewust buiten deze suites.
 2. Voeg pgTAP/RLS-tests toe voor persoonlijke momenten en compositiegrenzen.
 3. Herijk de Mijn dag-query voor eigenaar-profiel-momenten.
 4. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
-5. Voeg attentiemodel voor documenten onder aandacht toe, eerst als specificatie
-   en testdata.
+5. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
+   Mijn dag-aandacht wordt.
 6. Los `doelacceptaties` policy op voordat doelen in Mijn dag worden gebouwd.
 7. Breid UI pas uit na groene RLS/testdata-basis.
 8. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.

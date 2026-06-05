@@ -25,6 +25,9 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
   profielgerichte aandacht;
 - `mijn_dag_persoonlijke_momenten_rls.test.sql` bevat eigenaar-profiel
   persoonlijke momenten zonder deelname, inclusief gastcontextgrenzen;
+- `mijn_dag_document_attenties_rls.test.sql` bevat profielgerichte
+  document-attenties uit tijdlijnberichten en signalen, inclusief de grens dat
+  een zichtbare attentie geen verboden document opent;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -65,6 +68,9 @@ Bewezen domeinen:
 7. Mijn dag persoonlijke momenten: Sam en Milan zien hun eigen eigenaar-profiel
    moment zonder deelname; Gijs ziet Sams moment niet; Gijs ziet een eigen
    persoonlijk moment alleen wanneer `gasttoegang` expliciet aan staat.
+8. Mijn dag document-attenties: Sam ziet profielgerichte document-attenties
+   alleen als het gekoppelde document via document-RLS zichtbaar is; Gijs ziet
+   Sams attentie niet; groepscontext alleen is geen persoonlijke documentkaart.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
@@ -74,9 +80,8 @@ Volgende aanbevolen RLS-scenario's na deze basis:
    contexten en volledige flows na Fase 2.
 3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
    ticketsysteem of chatlaag te introduceren.
-4. Mijn dag-compositie: later uitbreiden met document-attenties en doelen onder
-   aandacht nadat de benodigde policies, testdata en specificaties expliciet
-   zijn toegevoegd.
+4. Mijn dag-compositie: later uitbreiden met doelen onder aandacht nadat de
+   benodigde policies, testdata en specificaties expliciet zijn toegevoegd.
 
 Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
 policy te hebben. Dit blijft bewust onopgelost in Stap 1A.

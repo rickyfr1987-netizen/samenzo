@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 import {
+  fetchMijnDagDocumentAttentionItems,
   fetchMijnDagItems,
   fetchMijnDagTaskItems
 } from "@/src/lib/mijn-dag/items";
@@ -298,5 +299,129 @@ describe("Mijn dag itemcompositie", () => {
       assigneeStatus: "actief",
       startsAt: "2026-06-10T11:00:00.000Z"
     });
+  });
+
+  it("toont alleen document-attenties waarvan het document zelf zichtbaar is", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        tijdlijnberichten: [
+          {
+            data: [
+              {
+                id: "tijdlijn-zichtbaar",
+                status: "actie_nodig",
+                titel: "Lees zichtbaar document",
+                inhoud: "Attentie naar zichtbaar document.",
+                created_at: "2026-06-10T08:00:00.000Z",
+                gericht_aan_profiel_id: "profiel-sam",
+                gekoppeld_type: "document",
+                gekoppeld_id: "document-zichtbaar"
+              },
+              {
+                id: "tijdlijn-verboden",
+                status: "actie_nodig",
+                titel: "Lees verboden document",
+                inhoud: "Deze tekst mag niet als documentkaart verschijnen.",
+                created_at: "2026-06-10T09:00:00.000Z",
+                gericht_aan_profiel_id: "profiel-sam",
+                gekoppeld_type: "document",
+                gekoppeld_id: "document-verboden"
+              }
+            ],
+            error: null
+          }
+        ],
+        signalen: [
+          {
+            data: [],
+            error: null
+          }
+        ],
+        documenten: [
+          {
+            data: [
+              {
+                id: "document-zichtbaar",
+                titel: "Zichtbaar document",
+                samenvatting: "Document-RLS heeft dit document vrijgegeven.",
+                status: "gepubliceerd",
+                categorieen: { naam: "Document algemeen" }
+              }
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagDocumentAttentionItems(
+      "profiel-sam",
+      selectedDay
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: "tijdlijnbericht-tijdlijn-zichtbaar",
+      documentId: "document-zichtbaar",
+      title: "Zichtbaar document",
+      description: "Document-RLS heeft dit document vrijgegeven.",
+      categoryName: "Document algemeen"
+    });
+    expect(items[0].reasons).toEqual([
+      {
+        type: "aandacht",
+        label: "Document onder aandacht",
+        status: "actie_nodig"
+      }
+    ]);
+  });
+
+  it("maakt groepsgerichte documentaandacht niet persoonlijk", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        tijdlijnberichten: [
+          {
+            data: [
+              {
+                id: "tijdlijn-groep",
+                status: "actie_nodig",
+                titel: "Groepsdocument",
+                inhoud: "Groepscontext alleen.",
+                created_at: "2026-06-10T08:00:00.000Z",
+                gericht_aan_profiel_id: null,
+                gekoppeld_type: "document",
+                gekoppeld_id: "document-groep"
+              }
+            ],
+            error: null
+          }
+        ],
+        signalen: [
+          {
+            data: [
+              {
+                id: "signaal-groep",
+                niveau: "aandacht_nodig",
+                status: "nieuw",
+                titel: "Groepssignaal",
+                omschrijving: "Groepscontext alleen.",
+                created_at: "2026-06-10T09:00:00.000Z",
+                gericht_aan_profiel_id: null,
+                gekoppeld_type: "document",
+                gekoppeld_id: "document-groep"
+              }
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagDocumentAttentionItems(
+      "profiel-sam",
+      selectedDay
+    );
+
+    expect(items).toEqual([]);
   });
 });

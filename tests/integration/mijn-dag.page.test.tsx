@@ -7,6 +7,7 @@ import {
   type CurrentSamzoProfiel
 } from "@/src/lib/samzo/current-context";
 import {
+  fetchMijnDagDocumentAttentionItems,
   fetchMijnDagItems,
   fetchMijnDagTaskItems
 } from "@/src/lib/mijn-dag/items";
@@ -32,6 +33,7 @@ vi.mock("@/src/lib/mijn-dag/items", async (importOriginal) => {
 
   return {
     ...actual,
+    fetchMijnDagDocumentAttentionItems: vi.fn(),
     fetchMijnDagItems: vi.fn(),
     fetchMijnDagTaskItems: vi.fn()
   };
@@ -51,6 +53,9 @@ vi.mock("@/src/lib/voorstellen/actions", () => ({
 }));
 
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
+const fetchMijnDagDocumentAttentionItemsMock = vi.mocked(
+  fetchMijnDagDocumentAttentionItems
+);
 const fetchMijnDagItemsMock = vi.mocked(fetchMijnDagItems);
 const fetchMijnDagTaskItemsMock = vi.mocked(fetchMijnDagTaskItems);
 const fetchOpenMomentProposalsForProfileMock = vi.mocked(
@@ -63,10 +68,12 @@ describe("Mijn dag overzicht", () => {
     window.localStorage.clear();
     vi.clearAllMocks();
     fetchCurrentSamzoContextMock.mockReset();
+    fetchMijnDagDocumentAttentionItemsMock.mockReset();
     fetchMijnDagItemsMock.mockReset();
     fetchMijnDagTaskItemsMock.mockReset();
     fetchOpenMomentProposalsForProfileMock.mockReset();
     fetchVisibleTimelineItemsMock.mockReset();
+    fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([]);
     window.localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, SAM_PROFILE_ID);
   });
 
@@ -490,6 +497,66 @@ describe("Mijn dag overzicht", () => {
     expect(screen.queryByRole("heading", { name: "Groepstoegang" })).not.toBeInTheDocument();
   });
 
+  it("toont document-attenties alleen via de veilige document-RLS compositie", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([]);
+    fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([
+      {
+        categoryName: "Document algemeen",
+        description: "Document-RLS gaf dit document vrij.",
+        documentId: "document-zichtbaar",
+        endsAt: null,
+        id: "tijdlijnbericht-document-attentie",
+        isAllDay: false,
+        location: null,
+        reasons: [
+          {
+            label: "Document onder aandacht",
+            status: "actie_nodig",
+            type: "aandacht"
+          }
+        ],
+        source: "tijdlijnbericht",
+        sourceId: "document-attentie",
+        startsAt: currentDayIsoAt(9),
+        status: "actie_nodig",
+        title: "Zichtbaar document"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([
+      {
+        body: "Deze generieke document-attentie mag niet los verschijnen.",
+        createdAt: currentDayIsoAt(9),
+        id: "timeline-document",
+        proposalId: null,
+        proposalReceivingProfileId: null,
+        related: { id: "document-verboden", type: "document" },
+        targetProfileId: SAM_PROFILE_ID,
+        targetGroupId: null,
+        source: "tijdlijnbericht",
+        status: "actie_nodig",
+        title: "Generieke document-attentie",
+        urgency: "actie_nodig"
+      }
+    ]);
+
+    render(<MijnDagPage />);
+
+    const documentLink = await screen.findByRole("link", {
+      name: "Zichtbaar document"
+    });
+
+    expect(documentLink).toHaveAttribute("href", "/documenten/document-zichtbaar");
+    expect(
+      screen.getByText("Document onder aandacht: actie nodig")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Generieke document-attentie" })
+    ).not.toBeInTheDocument();
+  });
+
   it("herlaadt data direct na profielwissel", async () => {
     const samContext = createSamzoContext();
     const ownProfile = samContext.currentProfiel as CurrentSamzoProfiel;
@@ -576,6 +643,7 @@ describe("Mijn dag overzicht", () => {
     await waitFor(() => {
       expect(fetchMijnDagItemsMock).toHaveBeenCalledTimes(2);
       expect(fetchMijnDagTaskItemsMock).toHaveBeenCalledTimes(2);
+      expect(fetchMijnDagDocumentAttentionItemsMock).toHaveBeenCalledTimes(2);
       expect(fetchVisibleTimelineItemsMock).toHaveBeenCalledTimes(2);
     });
     expect(fetchCurrentSamzoContextMock).toHaveBeenCalledTimes(2);

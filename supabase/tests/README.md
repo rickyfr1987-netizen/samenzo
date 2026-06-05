@@ -5,8 +5,9 @@ eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`; Fase 1
 Stap 1C breidde die basis uit naar voorstellen, Stap 1D voegde gastcontext toe,
 Stap 1E voegde minimale begeleidingsnotities-RLS toe, Stap 1F voegde minimale
 supportvragen-RLS toe, Fase 2 Stap 2C voegt een eerste
-Mijn dag-compositie-RLS-suite toe en Fase 2 Stap 2E voegt eigenaar-profiel
-persoonlijke momenten toe als read-only RLS-pad.
+Mijn dag-compositie-RLS-suite toe, Fase 2 Stap 2E voegt eigenaar-profiel
+persoonlijke momenten toe als read-only RLS-pad en Fase 2 Stap 2F voegt
+document-attenties toe als read-only RLS-pad.
 
 Draaien:
 
@@ -68,6 +69,12 @@ Huidige RLS-basis:
   moment zien, Gijs Sams moment niet ziet, gearchiveerde eigenaar-momenten
   gesloten blijven en Gijs als gast alleen een eigen persoonlijk moment ziet
   wanneer `gasttoegang` expliciet aan staat;
+- `mijn_dag_document_attenties_rls.test.sql` maakt eigen rollback-testdata voor
+  profielgerichte document-attenties uit tijdlijnberichten en signalen;
+- document-attentie-RLS bewijst dat Sam een profielgerichte attentie naar een
+  zichtbaar document kan zien, dat een profielgerichte attentie naar een
+  verboden document geen documentkaart mag openen, dat Gijs Sams attentie niet
+  ziet en dat groepscontext alleen geen persoonlijke document-attentie is;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 

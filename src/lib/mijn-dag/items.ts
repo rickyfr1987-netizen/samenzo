@@ -20,6 +20,33 @@ type DeelnameWithMoment = Pick<Tables<"deelnames">, "id" | "status"> & {
   momenten: MomentForMijnDag | null;
 };
 
+type DocumentAttentionTimelineRow = Pick<
+  Tables<"tijdlijnberichten">,
+  | "id"
+  | "status"
+  | "created_at"
+  | "gericht_aan_profiel_id"
+  | "gekoppeld_type"
+  | "gekoppeld_id"
+>;
+
+type DocumentAttentionSignalRow = Pick<
+  Tables<"signalen">,
+  | "id"
+  | "status"
+  | "created_at"
+  | "gericht_aan_profiel_id"
+  | "gekoppeld_type"
+  | "gekoppeld_id"
+>;
+
+type DocumentForMijnDag = Pick<
+  Tables<"documenten">,
+  "id" | "titel" | "samenvatting" | "status"
+> & {
+  categorieen: Pick<Tables<"categorieen">, "naam"> | null;
+};
+
 const MIJN_DAG_PERSONAL_MOMENT_STATUSES: Tables<"momenten">["status"][] = [
   "gepland",
   "open",
@@ -34,6 +61,12 @@ const MIJN_DAG_DEELNAME_STATUSES: Tables<"deelnames">["status"][] = [
   "ingeschreven",
   "wachtlijst"
 ];
+
+const MIJN_DAG_TIMELINE_DOCUMENT_ATTENTION_STATUSES: Tables<"tijdlijnberichten">["status"][] =
+  ["nieuw", "actie_nodig"];
+
+const MIJN_DAG_SIGNAL_DOCUMENT_ATTENTION_STATUSES: Tables<"signalen">["status"][] =
+  ["nieuw", "zichtbaar", "actie_nodig"];
 
 type RolbezettingWithMomentrol = Pick<
   Tables<"rolbezettingen">,
@@ -80,6 +113,12 @@ export type MijnDagTaskItem = MijnDagItem & {
   listTitle: string | null;
 };
 
+export type MijnDagDocumentAttentionItem = MijnDagItem & {
+  documentId: string;
+  source: "tijdlijnbericht" | "signaal";
+  sourceId: string;
+};
+
 const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
   persoonlijk_moment: 1,
   deelname: 1,
@@ -108,6 +147,67 @@ function isMomentOnDay(moment: MomentForMijnDag, day: Date) {
   const momentStart = new Date(moment.start_at);
 
   return momentStart >= start && momentStart < end;
+}
+
+function isTimestampOnDay(value: string | null, day: Date) {
+  if (!value) {
+    return false;
+  }
+
+  const { start, end } = getLocalDayRange(day);
+  const timestamp = new Date(value);
+
+  return timestamp >= start && timestamp < end;
+}
+
+function collectDocumentAttentionIds(
+  timelineRows: DocumentAttentionTimelineRow[],
+  signalRows: DocumentAttentionSignalRow[],
+  profielId: string,
+  day: Date
+) {
+  return [
+    ...new Set(
+      [
+        ...timelineRows
+          .filter((row) => isActiveTimelineDocumentAttention(row, profielId, day))
+          .map((row) => row.gekoppeld_id)
+          .filter((documentId): documentId is string => Boolean(documentId)),
+        ...signalRows
+          .filter((row) => isActiveSignalDocumentAttention(row, profielId, day))
+          .map((row) => row.gekoppeld_id)
+          .filter((documentId): documentId is string => Boolean(documentId))
+      ]
+    )
+  ];
+}
+
+function isActiveTimelineDocumentAttention(
+  row: DocumentAttentionTimelineRow,
+  profielId: string,
+  day: Date
+) {
+  return (
+    row.gericht_aan_profiel_id === profielId &&
+    row.gekoppeld_type === "document" &&
+    row.gekoppeld_id !== null &&
+    MIJN_DAG_TIMELINE_DOCUMENT_ATTENTION_STATUSES.includes(row.status) &&
+    isTimestampOnDay(row.created_at, day)
+  );
+}
+
+function isActiveSignalDocumentAttention(
+  row: DocumentAttentionSignalRow,
+  profielId: string,
+  day: Date
+) {
+  return (
+    row.gericht_aan_profiel_id === profielId &&
+    row.gekoppeld_type === "document" &&
+    row.gekoppeld_id !== null &&
+    MIJN_DAG_SIGNAL_DOCUMENT_ATTENTION_STATUSES.includes(row.status) &&
+    isTimestampOnDay(row.created_at, day)
+  );
 }
 
 const MIJN_DAG_TASK_ASSIGNEE_STATUSES: Tables<"taakuitvoerders">["status"][] = [
@@ -264,6 +364,158 @@ export async function fetchMijnDagTaskItems(
 
     return firstTime - secondTime;
   });
+}
+
+export async function fetchMijnDagDocumentAttentionItems(
+  profielId: string,
+  day: Date
+): Promise<MijnDagDocumentAttentionItem[]> {
+  const supabase = getSupabaseBrowserClient();
+
+  const [timelineResult, signalResult] = await Promise.all([
+    supabase
+      .from("tijdlijnberichten")
+      .select(
+        "id, status, created_at, gericht_aan_profiel_id, gekoppeld_type, gekoppeld_id"
+      )
+      .eq("gericht_aan_profiel_id", profielId)
+      .eq("gekoppeld_type", "document")
+      .in("status", MIJN_DAG_TIMELINE_DOCUMENT_ATTENTION_STATUSES)
+      .is("archived_at", null),
+    supabase
+      .from("signalen")
+      .select(
+        "id, status, created_at, gericht_aan_profiel_id, gekoppeld_type, gekoppeld_id"
+      )
+      .eq("gericht_aan_profiel_id", profielId)
+      .eq("gekoppeld_type", "document")
+      .in("status", MIJN_DAG_SIGNAL_DOCUMENT_ATTENTION_STATUSES)
+      .is("archived_at", null)
+  ]);
+
+  if (timelineResult.error) {
+    throw new Error(timelineResult.error.message);
+  }
+
+  if (signalResult.error) {
+    throw new Error(signalResult.error.message);
+  }
+
+  const timelineRows = (timelineResult.data ?? []) as DocumentAttentionTimelineRow[];
+  const signalRows = (signalResult.data ?? []) as DocumentAttentionSignalRow[];
+  const documentIds = collectDocumentAttentionIds(
+    timelineRows,
+    signalRows,
+    profielId,
+    day
+  );
+
+  if (documentIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("documenten")
+    .select(
+      `
+        id,
+        titel,
+        samenvatting,
+        status,
+        categorieen (
+          naam
+        )
+      `
+    )
+    .in("id", documentIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const documentsById = new Map<string, DocumentForMijnDag>(
+    ((data ?? []) as DocumentForMijnDag[]).map((document) => [
+      document.id,
+      document
+    ])
+  );
+
+  const timelineItems = timelineRows
+    .filter((row) => isActiveTimelineDocumentAttention(row, profielId, day))
+    .map((row) =>
+      mapDocumentAttentionRow({
+        document: documentsById.get(row.gekoppeld_id ?? ""),
+        source: "tijdlijnbericht",
+        sourceId: row.id,
+        status: row.status,
+        createdAt: row.created_at
+      })
+    );
+
+  const signalItems = signalRows
+    .filter((row) => isActiveSignalDocumentAttention(row, profielId, day))
+    .map((row) =>
+      mapDocumentAttentionRow({
+        document: documentsById.get(row.gekoppeld_id ?? ""),
+        source: "signaal",
+        sourceId: row.id,
+        status: row.status,
+        createdAt: row.created_at
+      })
+    );
+
+  return [...timelineItems, ...signalItems]
+    .filter((item): item is MijnDagDocumentAttentionItem => item !== null)
+    .sort((first, second) => {
+      const firstTime = first.startsAt
+        ? new Date(first.startsAt).getTime()
+        : 0;
+      const secondTime = second.startsAt
+        ? new Date(second.startsAt).getTime()
+        : 0;
+
+      return firstTime - secondTime;
+    });
+}
+
+function mapDocumentAttentionRow({
+  createdAt,
+  document,
+  source,
+  sourceId,
+  status
+}: {
+  createdAt: string;
+  document: DocumentForMijnDag | undefined;
+  source: MijnDagDocumentAttentionItem["source"];
+  sourceId: string;
+  status: string;
+}): MijnDagDocumentAttentionItem | null {
+  if (!document) {
+    return null;
+  }
+
+  return {
+    id: `${source}-${sourceId}`,
+    documentId: document.id,
+    source,
+    sourceId,
+    title: document.titel,
+    description: document.samenvatting,
+    startsAt: createdAt,
+    endsAt: null,
+    isAllDay: false,
+    location: null,
+    status,
+    categoryName: document.categorieen?.naam ?? "Document",
+    reasons: [
+      {
+        type: "aandacht",
+        label: "Document onder aandacht",
+        status
+      }
+    ]
+  };
 }
 
 function upsertMomentItem(

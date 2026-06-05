@@ -10,7 +10,7 @@ import TijdlijnPage from "@/app/tijdlijn/page";
 import { fetchCurrentSamzoContext, type CurrentSamzoContext, type CurrentSamzoPersoon } from "@/src/lib/samzo/current-context";
 import { fetchOpenMomentProposalsForProfile } from "@/src/lib/voorstellen/items";
 import { fetchVisibleTimelineItems, type TimelineItem } from "@/src/lib/tijdlijn/items";
-import { fetchMijnDagItems, fetchMijnDagTaskItems, type MijnDagItem, type MijnDagTaskItem } from "@/src/lib/mijn-dag/items";
+import { fetchMijnDagDocumentAttentionItems, fetchMijnDagItems, fetchMijnDagTaskItems, type MijnDagItem, type MijnDagTaskItem } from "@/src/lib/mijn-dag/items";
 import { fetchPlanningFilterCategories, fetchPlanningMoments, type PlanningMoment } from "@/src/lib/planning/moments";
 import { fetchVisibleDocumenten, type DocumentSummary } from "@/src/lib/documenten/items";
 import { fetchProfileById, fetchVisibleProfielen, type VisibleLid, type VisibleLidDetail } from "@/src/lib/leden/items";
@@ -40,6 +40,7 @@ vi.mock("@/src/lib/mijn-dag/items", async (importOriginal) => {
 
   return {
     ...actual,
+    fetchMijnDagDocumentAttentionItems: vi.fn(),
     fetchMijnDagItems: vi.fn(),
     fetchMijnDagTaskItems: vi.fn()
   };
@@ -87,6 +88,7 @@ vi.mock("@/src/lib/leden/items", () => ({
 }));
 
 const fetchCurrentSamzoContextMock = vi.mocked(fetchCurrentSamzoContext);
+const fetchMijnDagDocumentAttentionItemsMock = vi.mocked(fetchMijnDagDocumentAttentionItems);
 const fetchMijnDagItemsMock = vi.mocked(fetchMijnDagItems);
 const fetchMijnDagTaskItemsMock = vi.mocked(fetchMijnDagTaskItems);
 const fetchOpenMomentProposalsForProfileMock = vi.mocked(fetchOpenMomentProposalsForProfile);
@@ -263,6 +265,7 @@ beforeEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
   fetchCurrentSamzoContextMock.mockReset();
+  fetchMijnDagDocumentAttentionItemsMock.mockReset();
   fetchMijnDagItemsMock.mockReset();
   fetchMijnDagTaskItemsMock.mockReset();
   fetchOpenMomentProposalsForProfileMock.mockReset();
@@ -278,6 +281,7 @@ beforeEach(() => {
   searchParams.delete("to");
   searchParams.delete("category");
   searchParams.delete("status");
+  fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([]);
   window.localStorage.setItem("samzo.activeProfileId", GUEST_PROFILE_ID);
 });
 
