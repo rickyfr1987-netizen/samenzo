@@ -2,8 +2,8 @@
 
 Deze map bevat Supabase-specifieke testbestanden. Fase 1 Stap 1B voegde de
 eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`; Fase 1
-Stap 1C breidde die basis uit naar voorstellen en Stap 1D voegt gastcontext
-toe.
+Stap 1C breidde die basis uit naar voorstellen, Stap 1D voegde gastcontext toe
+en Stap 1E voegt minimale begeleidingsnotities-RLS toe.
 
 Draaien:
 
@@ -40,8 +40,18 @@ Huidige RLS-basis:
 - gastcontext-RLS bewijst dat Gijs een expliciet gasttoegankelijk moment en
   zijn eigen gastdeelname kan zien, maar geen bewonersmoment of intern
   medewerkersdocument;
+- `begeleidingsnotities_rls.test.sql` koppelt tijdelijke lokale Auth-users in
+  een rollback-transactie en test minimale begeleidingsnotities-RLS voor Milan,
+  Sam en Gijs;
+- begeleidingsnotities-RLS bewijst dat Milan een notitie in een toegestane
+  momentcontext kan aanmaken en zien, terwijl Sam die notitie niet kan zien of
+  aanmaken en Gijs die als gast niet kan zien;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
+
+Deze minimale test rond begeleidingsnotities rondt het functionele
+begeleidingsnotitie-domein niet af. Realistische individuele contexten en
+volledige flows blijven bewust later, na Fase 2.
 
 Gebruik hier geen echte persoonsgegevens, geen service-role secrets en geen
 wachtwoorden. Browser- of RLS-tests die authenticatie nodig hebben, moeten

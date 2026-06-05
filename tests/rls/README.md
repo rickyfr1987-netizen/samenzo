@@ -16,6 +16,8 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
   een gecontroleerde RPC-case voor `beantwoord_moment_voorstel`;
 - `gastcontext_rls.test.sql` bevat positieve en negatieve gastcontext-cases
   voor momenten, eigen deelname en interne informatie;
+- `begeleidingsnotities_rls.test.sql` bevat minimale privacycases voor
+  contextgebonden begeleidingsnotities;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -39,14 +41,17 @@ Bewezen domeinen:
 3. Gastcontext: Gijs kan een expliciet gasttoegankelijk moment en zijn eigen
    gastdeelname zien; Gijs kan een bewonersmoment en intern medewerkersdocument
    niet zien.
+4. Begeleidingsnotities: Milan kan een notitie in een toegestane momentcontext
+   aanmaken en zien; Sam kan die notitie niet zien of aanmaken; Gijs kan die
+   notitie als gast niet zien.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
 1. Documenten: zichtbaarheid verder uitbreiden naar groep/context en gekoppelde
    items.
-2. Begeleidingsnotities: beheer/medewerker/context mogen volgens policy;
-   regulier lid en gast krijgen geen brede toegang.
-3. Supportvragen: requester en support zien/muteren alleen de toegestane rijen.
+2. Supportvragen: requester en support zien/muteren alleen de toegestane rijen.
+3. Begeleidingsnotities: later uitbreiden met realistische individuele
+   contexten en volledige flows na Fase 2.
 
 Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
 policy te hebben. Dit blijft bewust onopgelost in Stap 1A.
