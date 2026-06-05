@@ -540,6 +540,74 @@ MVP-keuze:
 - read-only aandachtkaart en persoonlijk doelitem zijn zichtbaar in Mijn dag;
   acceptatie/weigering en beheerflow blijven uitgesteld.
 
+Actiespecificatie voor latere bouw:
+
+- doelacceptatie-acties mogen alleen persoonlijke regie vastleggen voor het
+  eigen profiel. De actor moet dus het actieve eigen profiel zijn; kijken via
+  `has_profieltoegang`, beheercontext, medewerkercontext of systeemcontext mag
+  nooit genoeg zijn om namens een ander profiel te accepteren, weigeren of op
+  later bekijken te zetten;
+- de gekoppelde doelrij moet zelfstandig zichtbaar blijven via
+  `can_view_doel`/doelen-RLS. Een doelacceptatie-actie mag geen verboden doel
+  openen en mag geen doelinhoud gebruiken wanneer de doelrij niet zichtbaar is;
+- `voorgesteld` is een actieve persoonlijke aandacht. Latere acties mogen dit
+  omzetten naar `geaccepteerd`, `geweigerd` of `later_bekijken`;
+- `later_bekijken` blijft een actieve persoonlijke aandacht. Productmatig is
+  het logisch dat het eigen profiel dit later alsnog naar `geaccepteerd` of
+  `geweigerd` kan brengen. De huidige minimale updatepolicy ondersteunt die
+  tweede stap nog niet, omdat zij alleen oude rijen met status `voorgesteld`
+  mag muteren. Als Stap 2L deze route wil bouwen, moet RLS/RPC die overgang
+  expliciet uitbreiden en testen;
+- `geaccepteerd` is een read-only persoonlijk doelitem en geen actieve
+  acceptatie-aandacht meer. Opnieuw accepteren, weigeren of later bekijken is
+  geen actieve Mijn dag-actie;
+- `geweigerd` verdwijnt uit actieve Mijn dag en krijgt geen nieuwe actieknoppen
+  zonder apart heropeningsontwerp;
+- `verlopen` is geen actieve Mijn dag-actie. Als verlopen doelvoorstellen later
+  historisch zichtbaar worden, blijft dat een aparte historiekweergave zonder
+  directe mutatie.
+
+Aanbevolen technische route voor latere bouw:
+
+- bouw de uiteindelijke mutatie als RPC of server action met een klein
+  actiewoord (`accept`, `reject`, `later`) en expliciete `target_acceptance_id`
+  plus `target_profiel_id`;
+- houd de functie `security invoker`, vergelijkbaar met
+  `beantwoord_moment_voorstel`, zodat gewone RLS en het actieve profiel de
+  grens blijven bepalen;
+- zet status en precies een timestampveld centraal in die actie:
+  `geaccepteerd_at` bij accepteren, `geweigerd_at` bij weigeren en
+  `later_bekijken_at` bij later bekijken. De andere twee actietimestamps moeten
+  dan leeg blijven;
+- gebruik geen directe client-update als productroute. De bestaande RLS maakt
+  een beperkte update van eigen `voorgesteld` technisch mogelijk, maar een
+  RPC/server action voorkomt verspreide timestamplogica, geeft betere
+  foutmeldingen en houdt ruimte voor logging, notificaties of statusgeschiedenis;
+- UI-gating blijft aanvullend: knoppen mogen alleen verschijnen wanneer de
+  pagina het eigen profiel toont en de status actiegeschikt is. De database/RPC
+  blijft de beslissende beveiligingslaag.
+
+Teststrategie voor latere actiebouw:
+
+- pgTAP/RLS bewijst positief dat Sam een eigen zichtbare `voorgesteld`
+  doelacceptatie kan accepteren, weigeren en later bekijken;
+- pgTAP/RLS bewijst, als dit functioneel gekozen wordt, dat Sam een eigen
+  zichtbare `later_bekijken` doelacceptatie alsnog kan accepteren of weigeren;
+- pgTAP/RLS bewijst negatief dat Gijs, Bas, beheercontext en profieltoegang
+  niet namens Sam kunnen handelen;
+- pgTAP/RLS bewijst negatief dat een doelacceptatie naar een verborgen doel
+  geen actie en geen doelinhoud opent;
+- pgTAP/RLS bewijst dat `geaccepteerd`, `geweigerd` en `verlopen` niet opnieuw
+  als actieve actie worden beantwoord;
+- pgTAP/RLS of unitdekking controleert dat per eindstatus precies de juiste
+  timestamp is gevuld en de andere actietimestamps leeg zijn;
+- unit- en componenttests bewijzen dat knoppen alleen bij eigen profiel en
+  actiegeschikte status verschijnen, en dat andermans profielperspectief
+  read-only blijft;
+- browsertests komen pas later met resetbare data. Het gedeelde lokale
+  testwachtwoord is voor deze specificatie niet nodig en hoort niet in docs,
+  tests, traces of CI te staan.
+
 ### 6.10 Tijdlijn-/support-aandacht
 
 Brondata:
@@ -603,7 +671,7 @@ MVP-keuze:
 
 ## 8. Uitgestelde onderdelen
 
-- doelacceptatie-acties;
+- implementatie van doelacceptatie-acties;
 - doelacceptatieknoppen op doelen onder aandacht;
 - voorsteltypes voor taken, doelen, documenten en persoonlijke momenten;
 - muterende taakflows vanuit Mijn dag;
@@ -671,7 +739,9 @@ read-only doel-attenties in `/mijn-dag`, zonder acceptatieknoppen,
 weigerknoppen, later-bekijken-knop of formulier. Fase 2 Stap 2J toont
 `geaccepteerd` als read-only persoonlijk doelitem. Geaccepteerde doelen
 verschijnen binnen de doelperiode vanaf acceptatie; zonder doelperiode alleen
-op de acceptatiedag.
+op de acceptatiedag. Fase 2 Stap 2K specificeert alleen de latere
+doelacceptatie-acties en bevestigt dat er nog geen knoppen, formulier,
+server action, RPC, migratie of doelmutatie wordt gebouwd.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -682,7 +752,7 @@ op de acceptatiedag.
 5. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
    Mijn dag-aandacht wordt.
 6. Houd doelen onder aandacht read-only zichtbaar; bouw acceptatie/weigering pas
-   later als aparte persoonlijke regieflow.
+   later als aparte persoonlijke regieflow op basis van de Stap 2K-specificatie.
 7. Breid UI pas uit na groene RLS/testdata-basis.
 8. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.
 
@@ -702,3 +772,25 @@ Reden: deze stap raakt migratie-seeddata, RLS, testisolatie en compositiegedrag.
 Reasoningniveau: extra hoog.
 Browsertesten: nee.
 Het gedeelde lokale testwachtwoord is niet nodig.
+
+## 13. Voorstel voor Fase 2 Stap 2L
+
+Voorgesteld doel:
+
+- bouw nog geen brede doelbeheerflow, maar kies eerst de veilige mutatielaag
+  voor doelacceptatie-acties;
+- voeg een RPC of server action toe voor eigen profielacties op
+  `doelacceptaties`;
+- ondersteun minimaal `voorgesteld` naar `geaccepteerd`, `geweigerd` en
+  `later_bekijken`;
+- beslis expliciet of `later_bekijken` daarna ook naar `geaccepteerd` en
+  `geweigerd` mag;
+- voeg pgTAP/RLS- en unitdekking toe voordat UI-knoppen worden gebouwd.
+
+Aanbevolen model: GPT-5.5 Codex.
+Reden: deze stap raakt persoonlijke regie, RLS-statusovergangen, timestamps en
+RPC/server-action ontwerp.
+Reasoningniveau: extra hoog.
+Browsertesten: nee, tenzij resetbare doelacceptatie-testdata vooraf expliciet
+klaarstaat.
+Het gedeelde lokale testwachtwoord is niet nodig voor de mutatielaag.
