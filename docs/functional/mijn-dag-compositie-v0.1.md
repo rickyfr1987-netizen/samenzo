@@ -87,7 +87,7 @@ Mijn dag is niet:
 | Taak | `taakuitvoerders` + `taken` + `lijsten` | Eerst read-only | Afvinken later na resetdata | Read policies aanwezig, mutaties apart |
 | Aandachtspunt | Tijdlijn, Signalen, Support, Voorstellen | Bouwen als compositie | Afhandelen later per bron | Bron-RLS leidend |
 | Document onder aandacht | Profielgerichte `tijdlijnberichten`/`signalen` + `documenten` | Read-only voorbereiden | Document openen alleen als document-RLS toestaat | Document-attentie RLS bewezen in Stap 2F |
-| Doel onder aandacht | `doelen` + later `doelacceptaties` | Uitstellen | Geen doelacceptatie tot policy bestaat | Policygat op `doelacceptaties` |
+| Doel onder aandacht | `doelen` + `doelacceptaties` | RLS voorbereiden | Eigen profiel beantwoordt acceptatie; geen Mijn dag-kaart | Minimale `doelacceptaties`-RLS bewezen in Stap 2G |
 | Tijdlijn-/support-aandacht | `tijdlijnberichten`, `supportvragen`, `signalen` | Beperkt handhaven | Geen ticketsysteem | Minimale support-RLS bewezen |
 
 ## 6. Per itemtype
@@ -480,12 +480,13 @@ Brondata:
 
 - `doelen`;
 - `doel_koppelingen`;
-- later `doelacceptaties`.
+- `doelacceptaties`.
 
 Zichtbaarheidsregel:
 
 - doel mag alleen zichtbaar zijn wanneer `can_view_doel`/doelen-RLS dit toestaat;
-- persoonlijke activering via `doelacceptaties` mag pas wanneer policies bestaan.
+- persoonlijke activering via `doelacceptaties` mag alleen voor het eigen
+  profiel en alleen wanneer het gekoppelde doel zelf zichtbaar is.
 
 Status/voorstelregel:
 
@@ -499,14 +500,18 @@ Datumregel:
 
 Actiebeleid:
 
-- geen doelacceptatie in Stap 2C;
-- geen doelen onder aandacht bouwen voordat `doelacceptaties` policy en RLS-test
-  bestaan.
+- geen doelacceptatie vanuit Mijn dag;
+- Stap 2G voegt alleen minimale RLS toe voor eigen doelacceptaties lezen en
+  eigen voorgestelde doelacceptatie beantwoorden;
+- doelen onder aandacht blijven buiten Mijn dag totdat read-only compositie
+  apart is ontworpen.
 
 RLS/privacyrisico:
 
-- `doelacceptaties` heeft RLS aan maar geen actuele policy;
-- zonder policy is dit veilig gesloten, maar functioneel onbruikbaar;
+- `doelacceptaties` raakt persoonlijke werkelijkheid en mag niet door
+  begeleiders of beheerders namens het profiel worden vastgesteld;
+- doelacceptatie-RLS mag doelinhoud niet openen als `can_view_doel` het doel
+  blokkeert;
 - doelen kunnen gevoelige persoonlijke richting bevatten.
 
 Testdata nodig:
@@ -519,7 +524,8 @@ Testdata nodig:
 
 MVP-keuze:
 
-- uitstellen tot na policy/RLS-fix.
+- policy/RLS-basis is voorbereid; Mijn dag-doelenkaart blijft uitgesteld tot
+  read-only compositie apart is ontworpen.
 
 ### 6.10 Tijdlijn-/support-aandacht
 
@@ -577,8 +583,8 @@ MVP-keuze:
 5. Taken mogen zichtbaar zijn, maar mutaties vanuit Mijn dag blijven later.
 6. Aandachtspunten zijn geen aparte entiteit in de MVP.
 7. Documenten onder aandacht worden attentiekaarten; document-RLS blijft leidend.
-8. Doelen onder aandacht worden uitgesteld tot `doelacceptaties` policy en
-   RLS-test bestaan.
+8. Doelen onder aandacht worden uitgesteld tot read-only compositie en
+   doel-attentie RLS-test bestaan.
 9. Support blijft aandacht via Tijdlijn, geen ticketsysteem.
 10. Categorieen mogen nooit rechten of zichtbaarheid bepalen.
 
@@ -598,7 +604,7 @@ MVP-keuze:
 
 | Gat | Effect | Vereist voor bouw |
 | --- | --- | --- |
-| `doelacceptaties` heeft RLS maar geen policy | Doelacceptatie is functioneel geblokkeerd | Policy + pgTAP-test voor doelen in Mijn dag |
+| Doelen onder aandacht nog niet in Mijn dag samengesteld | Doelacceptatie-RLS is voorbereid, maar er is nog geen veilige read-only doelkaart | Read-only compositie + pgTAP voor doel-attenties in vervolgstap |
 | Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
 | Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
@@ -619,7 +625,7 @@ Minimale resetbare scenario's voor Fase 2:
 - groepsgerichte aandacht die niet in Mijn dag verschijnt;
 - document-attentie naar zichtbaar document;
 - document-attentie naar verboden document;
-- doel onder aandacht pas na policyfix;
+- doel onder aandacht pas na read-only compositieontwerp;
 - supportvraag nieuw, in behandeling en gesloten;
 - Gijs als gast met alleen gasttoegankelijke werkelijkheid.
 
@@ -638,7 +644,12 @@ Fase 2 Stap 2F voegt
 profielgerichte document-attenties uit tijdlijnberichten en signalen. Die suite
 bewijst dat een zichtbare attentie geen verboden document opent, en dat
 groepscontext alleen geen persoonlijke document-attentie wordt. Doelen onder
-aandacht blijven bewust buiten deze suites.
+aandacht als Mijn dag-compositie blijven bewust buiten deze suites. Fase 2
+Stap 2G voegt
+`supabase/tests/database/doelacceptaties_rls.test.sql` toe en een minimale
+policy voor `doelacceptaties`: eigen profiel mag eigen voorgestelde
+doelacceptatie zien en beantwoorden, mits het gekoppelde doel via
+`can_view_doel` zichtbaar is.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -648,7 +659,8 @@ aandacht blijven bewust buiten deze suites.
 4. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
 5. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
    Mijn dag-aandacht wordt.
-6. Los `doelacceptaties` policy op voordat doelen in Mijn dag worden gebouwd.
+6. Ontwerp doelen onder aandacht als read-only compositie zonder
+   doelacceptatieknoppen.
 7. Breid UI pas uit na groene RLS/testdata-basis.
 8. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.
 

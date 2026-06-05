@@ -28,6 +28,8 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
 - `mijn_dag_document_attenties_rls.test.sql` bevat profielgerichte
   document-attenties uit tijdlijnberichten en signalen, inclusief de grens dat
   een zichtbare attentie geen verboden document opent;
+- `doelacceptaties_rls.test.sql` bevat minimale eigen-profiel grenzen voor
+  doelacceptaties rond zichtbare en verborgen doelen;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -71,6 +73,10 @@ Bewezen domeinen:
 8. Mijn dag document-attenties: Sam ziet profielgerichte document-attenties
    alleen als het gekoppelde document via document-RLS zichtbaar is; Gijs ziet
    Sams attentie niet; groepscontext alleen is geen persoonlijke documentkaart.
+9. Doelacceptaties: Sam ziet en beantwoordt alleen eigen voorgestelde
+   doelacceptaties wanneer het gekoppelde doel via `can_view_doel` zichtbaar
+   is; verborgen doelen blijven dicht, Gijs en Bas kunnen Sams acceptatie niet
+   lezen of muteren, en insert blijft gesloten.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
@@ -80,8 +86,9 @@ Volgende aanbevolen RLS-scenario's na deze basis:
    contexten en volledige flows na Fase 2.
 3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
    ticketsysteem of chatlaag te introduceren.
-4. Mijn dag-compositie: later uitbreiden met doelen onder aandacht nadat de
-   benodigde policies, testdata en specificaties expliciet zijn toegevoegd.
+4. Mijn dag-compositie: later uitbreiden met read-only doelen onder aandacht
+   nadat de doel-attentiecompositie expliciet is ontworpen.
 
-Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
-policy te hebben. Dit blijft bewust onopgelost in Stap 1A.
+Open RLS-punt: doelen onder aandacht hebben nu een minimale
+`doelacceptaties`-policybasis, maar nog geen Mijn dag-compositie, doelenkaart of
+acceptatieformulier.

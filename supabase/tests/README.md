@@ -7,7 +7,8 @@ Stap 1E voegde minimale begeleidingsnotities-RLS toe, Stap 1F voegde minimale
 supportvragen-RLS toe, Fase 2 Stap 2C voegt een eerste
 Mijn dag-compositie-RLS-suite toe, Fase 2 Stap 2E voegt eigenaar-profiel
 persoonlijke momenten toe als read-only RLS-pad en Fase 2 Stap 2F voegt
-document-attenties toe als read-only RLS-pad.
+document-attenties toe als read-only RLS-pad. Fase 2 Stap 2G voegt minimale
+`doelacceptaties`-RLS toe.
 
 Draaien:
 
@@ -75,14 +76,20 @@ Huidige RLS-basis:
   zichtbaar document kan zien, dat een profielgerichte attentie naar een
   verboden document geen documentkaart mag openen, dat Gijs Sams attentie niet
   ziet en dat groepscontext alleen geen persoonlijke document-attentie is;
+- `doelacceptaties_rls.test.sql` maakt eigen rollback-testdata voor
+  doelacceptaties rond zichtbare en verborgen doelen;
+- doelacceptaties-RLS bewijst dat Sam alleen eigen voorgestelde acceptaties
+  rond een zichtbaar doel kan zien en beantwoorden, dat verborgen gekoppelde
+  doelen geen acceptatie of doelinhoud openen, dat Gijs en Bas niet namens Sam
+  kunnen lezen of muteren, en dat insert gesloten blijft;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 
-Deze minimale tests rond begeleidingsnotities, supportvragen en Mijn dag-
-compositie ronden die domeinen niet functioneel af. De Mijn dag-tests bouwen
-geen UI, geen muterende flow en geen browserflow. Support blijft hier lichte
-tijdlijn-support en wordt geen ticketmodule. Realistische individuele contexten
-en volledige flows blijven bewust later, na Fase 2.
+Deze minimale tests rond begeleidingsnotities, supportvragen, doelacceptaties
+en Mijn dag-compositie ronden die domeinen niet functioneel af. De Mijn
+dag-tests bouwen geen UI, geen muterende flow en geen browserflow. Support
+blijft hier lichte tijdlijn-support en wordt geen ticketmodule. Realistische
+individuele contexten en volledige flows blijven bewust later, na Fase 2.
 
 De compacte Fase 1 RLS-bewijsmatrix met CI-route, open risico's en resterende
 Fase 1-stappen staat in `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
