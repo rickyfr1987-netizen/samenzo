@@ -7,6 +7,7 @@ Supabase-seeddata.
 Playwright-specifieke runtime fixtures staan onder `tests/e2e/fixtures/`.
 Die mogen environmentvariabelen lezen, maar mogen geen waarden voor
 wachtwoorden, tokens, sessies of storage state in Git opslaan.
+De browserdata-catalogus staat in `docs/testing/browser-testdata-v0.1.md`.
 
 Gebruik fictieve waarden en `@example.test`-adressen. Sla geen wachtwoorden,
 tokens, Auth secrets of echte persoonsgegevens op in fixtures.

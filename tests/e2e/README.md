@@ -4,6 +4,9 @@ Playwright is geconfigureerd via `playwright.config.ts`. Fase 1 Stap 1H voegt
 alleen een minimale auth-rooktest toe voor de bestaande dev-login en
 `/mijn-dag` profielcontext.
 
+De browserdata-catalogus en resetstrategie staan in
+`docs/testing/browser-testdata-v0.1.md`.
+
 Rooktest:
 
 ```bash
@@ -21,6 +24,8 @@ beschikbaar zijn:
 
 Als deze waarden ontbreken, slaat de rooktest zichzelf over. Bewaar geen
 storage state in Git; de test logt per run opnieuw in via `/beheer/dev-login`.
+Gebruik als eerste rooktestprofiel bij voorkeur `sam.bewoner@example.test` met
+verwachte profielnaam `Sam Bewoner`.
 
 Alle e2e-tests moeten:
 
@@ -33,4 +38,6 @@ Alle e2e-tests moeten:
 Playwright screenshots, video en traces staan uit in de basisconfig om te
 voorkomen dat login- of profielcontext per ongeluk in artifacts belandt.
 RLS wordt niet met Playwright bewezen; RLS blijft via pgTAP en GitHub Actions
-bewezen. Resetbare browserdata wordt in Stap 1I verder uitgewerkt.
+bewezen. De resetstrategie voor browserdata staat in
+`docs/testing/browser-testdata-v0.1.md`.
+Muterende browserflows worden pas toegevoegd nadat hun data vooraf resetbaar is.

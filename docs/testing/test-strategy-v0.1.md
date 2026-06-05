@@ -20,6 +20,7 @@ Bronnen van waarheid:
 | `docs/audits/autonomous-project-audit-v0.1.md` | Implementatiematrix en testgaten. |
 | `docs/audits/stability-cleanup-round-v0.1.md` | Gehard voorstelgedrag en resterende risico's. |
 | `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md` | Centrale Fase 1 RLS-bewijsmatrix, CI-route, open risico's en resterende Fase 1-stappen. |
+| `docs/testing/browser-testdata-v0.1.md` | Browserdata-catalogus, runtime-authconfig en resetstrategie voor Playwright-flows. |
 
 ## Tooling
 
@@ -85,6 +86,8 @@ Voor de minimale Playwright-authrooktest worden lokaal alleen variabelenamen
 gedocumenteerd: `SAMZO_E2E_EMAIL`, `SAMZO_E2E_PASSWORD` en
 `SAMZO_E2E_PROFILE_NAME`. Waarden horen buiten Git en buiten CI-artifacts te
 blijven. Playwright screenshots, video en traces staan uit in de basisconfig.
+De browserdata-catalogus en resetstrategie staan in
+`docs/testing/browser-testdata-v0.1.md`.
 
 ## Naamconventies
 

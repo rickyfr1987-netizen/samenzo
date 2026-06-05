@@ -15,6 +15,12 @@ type AuthFixtures = {
   loginAsE2EUser: () => Promise<void>;
 };
 
+function missingRuntimeEnvNames() {
+  return [E2E_EMAIL_ENV, E2E_PASSWORD_ENV, E2E_PROFILE_NAME_ENV].filter(
+    (name) => !process.env[name]
+  );
+}
+
 function readE2EAuthUser(): E2EAuthUser | null {
   const email = process.env[E2E_EMAIL_ENV];
   const password = process.env[E2E_PASSWORD_ENV];
@@ -34,12 +40,13 @@ function readE2EAuthUser(): E2EAuthUser | null {
 export const test = base.extend<AuthFixtures>({
   e2eAuthUser: async ({}, provide) => {
     const authUser = readE2EAuthUser();
+    const missingEnvNames = missingRuntimeEnvNames();
 
     test.skip(
       authUser === null,
       [
         "Playwright auth smoke requires runtime-only local auth config.",
-        `Set ${E2E_EMAIL_ENV}, ${E2E_PASSWORD_ENV} and ${E2E_PROFILE_NAME_ENV}.`
+        `Missing: ${missingEnvNames.join(", ")}.`
       ].join(" ")
     );
 
