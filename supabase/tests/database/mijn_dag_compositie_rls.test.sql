@@ -166,18 +166,20 @@ begin
     profiel_id,
     status,
     toegevoegd_door_persoon_id
-  ) values (
+  )
+  select
     '89000000-0000-4000-8000-000000000001',
     groep_bewoners,
     sam_profiel,
     'actief',
     bas_persoon
-  )
-  on conflict (id) do update
-    set groep_id = excluded.groep_id,
-      profiel_id = excluded.profiel_id,
-      status = excluded.status,
-      updated_at = now();
+  where not exists (
+    select 1
+    from public.groepslidmaatschappen
+    where groep_id = groep_bewoners
+      and profiel_id = sam_profiel
+      and status = 'actief'
+  );
 
   insert into public.groepslidmaatschappen (
     id,
@@ -185,18 +187,20 @@ begin
     profiel_id,
     status,
     toegevoegd_door_persoon_id
-  ) values (
+  )
+  select
     '89000000-0000-4000-8000-000000000002',
     groep_medewerkers,
     milan_profiel,
     'actief',
     bas_persoon
-  )
-  on conflict (id) do update
-    set groep_id = excluded.groep_id,
-      profiel_id = excluded.profiel_id,
-      status = excluded.status,
-      updated_at = now();
+  where not exists (
+    select 1
+    from public.groepslidmaatschappen
+    where groep_id = groep_medewerkers
+      and profiel_id = milan_profiel
+      and status = 'actief'
+  );
 
   insert into public.momenten (
     id,
