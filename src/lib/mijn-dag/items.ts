@@ -47,6 +47,18 @@ type DocumentForMijnDag = Pick<
   categorieen: Pick<Tables<"categorieen">, "naam"> | null;
 };
 
+type GoalAcceptanceForMijnDag = Pick<
+  Tables<"doelacceptaties">,
+  "id" | "doel_id" | "status" | "created_at" | "later_bekijken_at"
+>;
+
+type GoalForMijnDag = Pick<
+  Tables<"doelen">,
+  "id" | "titel" | "beschrijving" | "status" | "start_at" | "eind_at"
+> & {
+  categorieen: Pick<Tables<"categorieen">, "naam"> | null;
+};
+
 const MIJN_DAG_PERSONAL_MOMENT_STATUSES: Tables<"momenten">["status"][] = [
   "gepland",
   "open",
@@ -67,6 +79,11 @@ const MIJN_DAG_TIMELINE_DOCUMENT_ATTENTION_STATUSES: Tables<"tijdlijnberichten">
 
 const MIJN_DAG_SIGNAL_DOCUMENT_ATTENTION_STATUSES: Tables<"signalen">["status"][] =
   ["nieuw", "zichtbaar", "actie_nodig"];
+
+const MIJN_DAG_GOAL_ATTENTION_STATUSES: Tables<"doelacceptaties">["status"][] = [
+  "voorgesteld",
+  "later_bekijken"
+];
 
 type RolbezettingWithMomentrol = Pick<
   Tables<"rolbezettingen">,
@@ -117,6 +134,12 @@ export type MijnDagDocumentAttentionItem = MijnDagItem & {
   documentId: string;
   source: "tijdlijnbericht" | "signaal";
   sourceId: string;
+};
+
+export type MijnDagGoalAttentionItem = MijnDagItem & {
+  goalId: string;
+  acceptanceId: string;
+  acceptanceStatus: Tables<"doelacceptaties">["status"];
 };
 
 const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
@@ -196,6 +219,19 @@ function isActiveTimelineDocumentAttention(
   );
 }
 
+function collectGoalAttentionIds(
+  acceptanceRows: GoalAcceptanceForMijnDag[],
+  day: Date
+) {
+  return [
+    ...new Set(
+      acceptanceRows
+        .filter((row) => isActiveGoalAttention(row, day))
+        .map((row) => row.doel_id)
+    )
+  ];
+}
+
 function isActiveSignalDocumentAttention(
   row: DocumentAttentionSignalRow,
   profielId: string,
@@ -207,6 +243,18 @@ function isActiveSignalDocumentAttention(
     row.gekoppeld_id !== null &&
     MIJN_DAG_SIGNAL_DOCUMENT_ATTENTION_STATUSES.includes(row.status) &&
     isTimestampOnDay(row.created_at, day)
+  );
+}
+
+function isActiveGoalAttention(row: GoalAcceptanceForMijnDag, day: Date) {
+  const attentionAt =
+    row.status === "later_bekijken"
+      ? row.later_bekijken_at ?? row.created_at
+      : row.created_at;
+
+  return (
+    MIJN_DAG_GOAL_ATTENTION_STATUSES.includes(row.status) &&
+    isTimestampOnDay(attentionAt, day)
   );
 }
 
@@ -478,6 +526,75 @@ export async function fetchMijnDagDocumentAttentionItems(
     });
 }
 
+export async function fetchMijnDagGoalAttentionItems(
+  profielId: string,
+  day: Date
+): Promise<MijnDagGoalAttentionItem[]> {
+  const supabase = getSupabaseBrowserClient();
+
+  const acceptanceResult = await supabase
+    .from("doelacceptaties")
+    .select("id, doel_id, status, created_at, later_bekijken_at")
+    .eq("profiel_id", profielId)
+    .in("status", MIJN_DAG_GOAL_ATTENTION_STATUSES);
+
+  if (acceptanceResult.error) {
+    throw new Error(acceptanceResult.error.message);
+  }
+
+  const acceptanceRows = (acceptanceResult.data ?? []) as GoalAcceptanceForMijnDag[];
+  const goalIds = collectGoalAttentionIds(acceptanceRows, day);
+
+  if (goalIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("doelen")
+    .select(
+      `
+        id,
+        titel,
+        beschrijving,
+        status,
+        start_at,
+        eind_at,
+        categorieen (
+          naam
+        )
+      `
+    )
+    .in("id", goalIds)
+    .is("archived_at", null)
+    .neq("status", "gearchiveerd");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const goalsById = new Map<string, GoalForMijnDag>(
+    ((data ?? []) as GoalForMijnDag[]).map((goal) => [goal.id, goal])
+  );
+
+  return acceptanceRows
+    .filter((row) => isActiveGoalAttention(row, day))
+    .map((row) =>
+      mapGoalAttentionRow({
+        acceptance: row,
+        goal: goalsById.get(row.doel_id)
+      })
+    )
+    .filter((item): item is MijnDagGoalAttentionItem => item !== null)
+    .sort((first, second) => {
+      const firstTime = first.startsAt ? new Date(first.startsAt).getTime() : 0;
+      const secondTime = second.startsAt
+        ? new Date(second.startsAt).getTime()
+        : 0;
+
+      return firstTime - secondTime;
+    });
+}
+
 function mapDocumentAttentionRow({
   createdAt,
   document,
@@ -513,6 +630,45 @@ function mapDocumentAttentionRow({
         type: "aandacht",
         label: "Document onder aandacht",
         status
+      }
+    ]
+  };
+}
+
+function mapGoalAttentionRow({
+  acceptance,
+  goal
+}: {
+  acceptance: GoalAcceptanceForMijnDag;
+  goal: GoalForMijnDag | undefined;
+}): MijnDagGoalAttentionItem | null {
+  if (!goal) {
+    return null;
+  }
+
+  const attentionAt =
+    acceptance.status === "later_bekijken"
+      ? acceptance.later_bekijken_at ?? acceptance.created_at
+      : acceptance.created_at;
+
+  return {
+    id: `doelacceptatie-${acceptance.id}`,
+    goalId: goal.id,
+    acceptanceId: acceptance.id,
+    acceptanceStatus: acceptance.status,
+    title: goal.titel,
+    description: goal.beschrijving,
+    startsAt: attentionAt,
+    endsAt: goal.eind_at,
+    isAllDay: false,
+    location: null,
+    status: acceptance.status,
+    categoryName: goal.categorieen?.naam ?? "Doel",
+    reasons: [
+      {
+        type: "aandacht",
+        label: "Doel onder aandacht",
+        status: acceptance.status
       }
     ]
   };

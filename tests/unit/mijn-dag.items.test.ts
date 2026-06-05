@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSupabaseBrowserClient } from "@/src/lib/supabase/client";
 import {
   fetchMijnDagDocumentAttentionItems,
+  fetchMijnDagGoalAttentionItems,
   fetchMijnDagItems,
   fetchMijnDagTaskItems
 } from "@/src/lib/mijn-dag/items";
@@ -26,6 +27,7 @@ function createQueryMock(payload: QueryPayload) {
     eq: vi.fn(() => query),
     is: vi.fn(() => query),
     in: vi.fn(() => query),
+    neq: vi.fn(() => query),
     order: vi.fn(() => query)
   };
 
@@ -418,6 +420,131 @@ describe("Mijn dag itemcompositie", () => {
     } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
 
     const items = await fetchMijnDagDocumentAttentionItems(
+      "profiel-sam",
+      selectedDay
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it("toont alleen actieve doel-attenties waarvan het doel zelf zichtbaar is", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        doelacceptaties: [
+          {
+            data: [
+              {
+                id: "acceptatie-voorgesteld",
+                doel_id: "doel-zichtbaar",
+                status: "voorgesteld",
+                created_at: "2026-06-10T08:00:00.000Z",
+                later_bekijken_at: null
+              },
+              {
+                id: "acceptatie-later",
+                doel_id: "doel-later",
+                status: "later_bekijken",
+                created_at: "2026-06-09T08:00:00.000Z",
+                later_bekijken_at: "2026-06-10T09:00:00.000Z"
+              },
+              {
+                id: "acceptatie-geweigerd",
+                doel_id: "doel-geweigerd",
+                status: "geweigerd",
+                created_at: "2026-06-10T10:00:00.000Z",
+                later_bekijken_at: null
+              },
+              {
+                id: "acceptatie-verborgen",
+                doel_id: "doel-verborgen",
+                status: "voorgesteld",
+                created_at: "2026-06-10T11:00:00.000Z",
+                later_bekijken_at: null
+              }
+            ],
+            error: null
+          }
+        ],
+        doelen: [
+          {
+            data: [
+              {
+                id: "doel-zichtbaar",
+                titel: "Zichtbaar doel",
+                beschrijving: "Doel-RLS heeft dit doel vrijgegeven.",
+                status: "onder_de_aandacht",
+                start_at: "2026-06-10T08:00:00.000Z",
+                eind_at: null,
+                categorieen: { naam: "Doel licht" }
+              },
+              {
+                id: "doel-later",
+                titel: "Later bekijken doel",
+                beschrijving: "Blijft read-only aandacht.",
+                status: "onder_de_aandacht",
+                start_at: "2026-06-09T08:00:00.000Z",
+                eind_at: null,
+                categorieen: { naam: "Doel licht" }
+              }
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagGoalAttentionItems(
+      "profiel-sam",
+      selectedDay
+    );
+
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.id)).toEqual([
+      "doelacceptatie-acceptatie-voorgesteld",
+      "doelacceptatie-acceptatie-later"
+    ]);
+    expect(items[0]).toMatchObject({
+      goalId: "doel-zichtbaar",
+      title: "Zichtbaar doel",
+      description: "Doel-RLS heeft dit doel vrijgegeven.",
+      acceptanceStatus: "voorgesteld",
+      categoryName: "Doel licht"
+    });
+    expect(items[0].reasons).toEqual([
+      {
+        type: "aandacht",
+        label: "Doel onder aandacht",
+        status: "voorgesteld"
+      }
+    ]);
+    expect(items[1]).toMatchObject({
+      goalId: "doel-later",
+      startsAt: "2026-06-10T09:00:00.000Z",
+      acceptanceStatus: "later_bekijken"
+    });
+  });
+
+  it("geeft geen doel-attenties terug als er geen actieve acceptatie op de gekozen dag is", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        doelacceptaties: [
+          {
+            data: [
+              {
+                id: "acceptatie-morgen",
+                doel_id: "doel-morgen",
+                status: "voorgesteld",
+                created_at: "2026-06-11T08:00:00.000Z",
+                later_bekijken_at: null
+              }
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagGoalAttentionItems(
       "profiel-sam",
       selectedDay
     );

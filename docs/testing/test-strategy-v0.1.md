@@ -63,7 +63,9 @@ momentvoorstel, read-only taakrelatie en profielgerichte aandacht. Fase 2 Stap
 compositiepad met aparte RLS-coverage. Fase 2 Stap 2F voegt document-attenties
 toe als read-only compositiepad waarbij document-RLS zelfstandig leidend blijft.
 Fase 2 Stap 2G voegt minimale `doelacceptaties`-RLS toe voor eigen profiel,
-zonder Mijn dag-doelenkaart of doelacceptatieformulier.
+zonder Mijn dag-doelenkaart of doelacceptatieformulier. Fase 2 Stap 2H voegt
+read-only doel-attenties toe als compositiepad waarbij doel-RLS zelfstandig
+leidend blijft.
 De centrale matrix en besluitvorming staan in
 `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
@@ -159,6 +161,7 @@ Bewezen RLS-domeinen:
 | Mijn dag persoonlijke momenten | Rollback-testdata bewijst dat eigenaar-profiel momenten zonder deelname zichtbaar zijn voor het juiste profiel, niet lekken naar Gijs, gearchiveerde momenten gesloten blijven en Gijs als gast alleen een eigen persoonlijk moment ziet wanneer `gasttoegang` expliciet aan staat. |
 | Mijn dag document-attenties | Rollback-testdata bewijst dat profielgerichte document-attenties uit tijdlijnberichten en signalen alleen een documentkaart kunnen worden wanneer het gekoppelde document via document-RLS zichtbaar is; groepscontext alleen wordt geen persoonlijke document-attentie. |
 | Doelacceptaties | Rollback-testdata bewijst dat een profiel alleen eigen voorgestelde doelacceptaties kan zien en beantwoorden wanneer het gekoppelde doel via `can_view_doel` zichtbaar is; verborgen doelen, andere profielen, Bas en insert blijven gesloten. |
+| Mijn dag doel-attenties | Rollback-testdata bewijst dat eigen `doelacceptaties` met status `voorgesteld` of `later_bekijken` alleen een read-only doel-attentie worden wanneer het gekoppelde doel via doel-RLS zichtbaar is; `geweigerd` en `geaccepteerd` worden niet als actieve doel-attentie samengesteld. |
 
 Aanbevolen volgorde:
 
@@ -166,7 +169,7 @@ Aanbevolen volgorde:
 | --- | --- |
 | 1 | Supabase CLI-validatie lokaal voorbereiden via help/status/reset-checks zonder remote project te raken. |
 | 2 | Lokale Supabase-testdatabase starten, resetten en `npm run test:rls` draaien. |
-| 3 | RLS-scenario's uitbreiden voor documentencontexten, latere begeleidingsnotitie-/supportflows en de resterende Mijn dag-compositie-onderdelen zoals read-only doelen onder aandacht. |
+| 3 | RLS-scenario's uitbreiden voor documentencontexten, latere begeleidingsnotitie-/supportflows en resterende Mijn dag-detailonderdelen zonder muterende flow. |
 | 4 | Alleen testdata gebruiken die idempotent, fictief en development-only is. |
 | 5 | Geen service-role gebruiken om gewoon gebruikersgedrag te bewijzen; tijdelijke Auth-koppelingen horen in rollback-testsetup. |
 

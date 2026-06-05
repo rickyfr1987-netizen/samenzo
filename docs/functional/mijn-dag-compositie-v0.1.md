@@ -16,7 +16,7 @@ Buiten scope:
 - Playwright-tests of browserflows;
 - categoriegedrag;
 - voorsteltypes buiten momenten bouwen;
-- `doelacceptaties` oplossen.
+- doelen onder aandacht read-only afronden.
 
 ## 2. Definitie: Mijn dag als persoonlijke werkelijkheid
 
@@ -87,7 +87,7 @@ Mijn dag is niet:
 | Taak | `taakuitvoerders` + `taken` + `lijsten` | Eerst read-only | Afvinken later na resetdata | Read policies aanwezig, mutaties apart |
 | Aandachtspunt | Tijdlijn, Signalen, Support, Voorstellen | Bouwen als compositie | Afhandelen later per bron | Bron-RLS leidend |
 | Document onder aandacht | Profielgerichte `tijdlijnberichten`/`signalen` + `documenten` | Read-only voorbereiden | Document openen alleen als document-RLS toestaat | Document-attentie RLS bewezen in Stap 2F |
-| Doel onder aandacht | `doelen` + `doelacceptaties` | RLS voorbereiden | Eigen profiel beantwoordt acceptatie; geen Mijn dag-kaart | Minimale `doelacceptaties`-RLS bewezen in Stap 2G |
+| Doel onder aandacht | `doelacceptaties` + daarna `doelen` | Read-only voorbereiden | Geen acceptatieknoppen in Mijn dag | Doel-attentie RLS bewezen in Stap 2H |
 | Tijdlijn-/support-aandacht | `tijdlijnberichten`, `supportvragen`, `signalen` | Beperkt handhaven | Geen ticketsysteem | Minimale support-RLS bewezen |
 
 ## 6. Per itemtype
@@ -491,6 +491,11 @@ Zichtbaarheidsregel:
 Status/voorstelregel:
 
 - voorgesteld persoonlijk doel is nog geen actief doel;
+- `voorgesteld` verschijnt als actieve read-only aandacht;
+- `later_bekijken` mag actieve read-only aandacht blijven;
+- `geweigerd` verdwijnt uit actieve Mijn dag;
+- `geaccepteerd` wordt nog niet als doel onder aandacht gebouwd en kan later
+  een persoonlijk doelitem worden;
 - acceptatie/weigering moet vergelijkbaar met voorstelregie verlopen.
 
 Datumregel:
@@ -503,8 +508,9 @@ Actiebeleid:
 - geen doelacceptatie vanuit Mijn dag;
 - Stap 2G voegt alleen minimale RLS toe voor eigen doelacceptaties lezen en
   eigen voorgestelde doelacceptatie beantwoorden;
-- doelen onder aandacht blijven buiten Mijn dag totdat read-only compositie
-  apart is ontworpen.
+- Stap 2H bereidt read-only doelen onder aandacht voor via
+  `doelacceptaties`, zonder acceptatieknoppen of doelmutaties;
+- doeldata wordt pas gebruikt nadat `doelen` zelf die rij via RLS teruggeeft.
 
 RLS/privacyrisico:
 
@@ -520,12 +526,12 @@ Testdata nodig:
 - groepsdoel;
 - voorgesteld doel met acceptatie;
 - doel van ander profiel;
-- doel onder aandacht via attentie.
+- doel onder aandacht via doelacceptatie.
 
 MVP-keuze:
 
-- policy/RLS-basis is voorbereid; Mijn dag-doelenkaart blijft uitgesteld tot
-  read-only compositie apart is ontworpen.
+- read-only compositie is voorbereid; UI-kaart, acceptatie/weigering en
+  beheerflow blijven uitgesteld.
 
 ### 6.10 Tijdlijn-/support-aandacht
 
@@ -583,14 +589,15 @@ MVP-keuze:
 5. Taken mogen zichtbaar zijn, maar mutaties vanuit Mijn dag blijven later.
 6. Aandachtspunten zijn geen aparte entiteit in de MVP.
 7. Documenten onder aandacht worden attentiekaarten; document-RLS blijft leidend.
-8. Doelen onder aandacht worden uitgesteld tot read-only compositie en
-   doel-attentie RLS-test bestaan.
+8. Doelen onder aandacht worden read-only voorbereid via doelacceptaties;
+   acceptatieknoppen en doelmutaties blijven later.
 9. Support blijft aandacht via Tijdlijn, geen ticketsysteem.
 10. Categorieen mogen nooit rechten of zichtbaarheid bepalen.
 
 ## 8. Uitgestelde onderdelen
 
 - doelacceptatie-acties;
+- doelen onder aandacht als volwaardige UI-kaart;
 - voorsteltypes voor taken, doelen, documenten en persoonlijke momenten;
 - muterende taakflows vanuit Mijn dag;
 - document onder aandacht als volwaardige UI-flow;
@@ -604,7 +611,7 @@ MVP-keuze:
 
 | Gat | Effect | Vereist voor bouw |
 | --- | --- | --- |
-| Doelen onder aandacht nog niet in Mijn dag samengesteld | Doelacceptatie-RLS is voorbereid, maar er is nog geen veilige read-only doelkaart | Read-only compositie + pgTAP voor doel-attenties in vervolgstap |
+| Doelen onder aandacht nog niet als UI-kaart gebouwd | Read-only compositie en RLS-bewijs zijn voorbereid, maar er is geen zichtbare doelenkaart | UI-ontwerp + browservrije componenttest in vervolgstap |
 | Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
 | Document onder aandacht alleen read-only bewezen | Attentiekaart werkt via profielgerichte aandacht plus document-RLS, maar heeft nog geen veilige aanmaak- of beheerflow | Muterende flow + testdata per vervolgstap |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
@@ -625,7 +632,7 @@ Minimale resetbare scenario's voor Fase 2:
 - groepsgerichte aandacht die niet in Mijn dag verschijnt;
 - document-attentie naar zichtbaar document;
 - document-attentie naar verboden document;
-- doel onder aandacht pas na read-only compositieontwerp;
+- doel onder aandacht als read-only compositie;
 - supportvraag nieuw, in behandeling en gesloten;
 - Gijs als gast met alleen gasttoegankelijke werkelijkheid.
 
@@ -643,13 +650,16 @@ Fase 2 Stap 2F voegt
 `supabase/tests/database/mijn_dag_document_attenties_rls.test.sql` toe voor
 profielgerichte document-attenties uit tijdlijnberichten en signalen. Die suite
 bewijst dat een zichtbare attentie geen verboden document opent, en dat
-groepscontext alleen geen persoonlijke document-attentie wordt. Doelen onder
-aandacht als Mijn dag-compositie blijven bewust buiten deze suites. Fase 2
-Stap 2G voegt
+groepscontext alleen geen persoonlijke document-attentie wordt. Fase 2 Stap 2G
+voegt
 `supabase/tests/database/doelacceptaties_rls.test.sql` toe en een minimale
 policy voor `doelacceptaties`: eigen profiel mag eigen voorgestelde
 doelacceptatie zien en beantwoorden, mits het gekoppelde doel via
-`can_view_doel` zichtbaar is.
+`can_view_doel` zichtbaar is. Fase 2 Stap 2H voegt
+`supabase/tests/database/mijn_dag_doel_attenties_rls.test.sql` toe en bereidt
+read-only `fetchMijnDagGoalAttentionItems` voor. Alleen `voorgesteld` en
+`later_bekijken` zijn actieve doel-attenties; `geweigerd` en `geaccepteerd`
+worden niet als actieve doelkaart samengesteld.
 
 ## 11. Aanbevolen bouwvolgorde
 
@@ -659,7 +669,7 @@ doelacceptatie zien en beantwoorden, mits het gekoppelde doel via
 4. Houd taken read-only en test zichtbaarheid op taakuitvoerder.
 5. Houd document-attenties read-only en voorkom dat groepscontext persoonlijke
    Mijn dag-aandacht wordt.
-6. Ontwerp doelen onder aandacht als read-only compositie zonder
+6. Houd doelen onder aandacht read-only en bouw pas later een UI-kaart zonder
    doelacceptatieknoppen.
 7. Breid UI pas uit na groene RLS/testdata-basis.
 8. Voeg browser-smoke pas toe nadat runtime-login en resetdata betrouwbaar zijn.
@@ -672,8 +682,8 @@ Voorgesteld doel:
   dag-compositie: deelname, rolbezetting, open momentvoorstel, taak en
   profielgerichte aandacht;
 - bouw nog geen UI;
-- los `doelacceptaties` nog niet op, tenzij Stap 2C expliciet daarop wordt
-  gericht.
+- houd doelen en `doelacceptaties` buiten Stap 2C; deze zijn later in Stap 2G
+  en Stap 2H apart RLS-first voorbereid.
 
 Aanbevolen model: GPT-5.5 Codex.
 Reden: deze stap raakt migratie-seeddata, RLS, testisolatie en compositiegedrag.

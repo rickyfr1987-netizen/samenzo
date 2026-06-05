@@ -8,7 +8,7 @@ supportvragen-RLS toe, Fase 2 Stap 2C voegt een eerste
 Mijn dag-compositie-RLS-suite toe, Fase 2 Stap 2E voegt eigenaar-profiel
 persoonlijke momenten toe als read-only RLS-pad en Fase 2 Stap 2F voegt
 document-attenties toe als read-only RLS-pad. Fase 2 Stap 2G voegt minimale
-`doelacceptaties`-RLS toe.
+`doelacceptaties`-RLS toe en Fase 2 Stap 2H voegt read-only doel-attenties toe.
 
 Draaien:
 
@@ -82,6 +82,13 @@ Huidige RLS-basis:
   rond een zichtbaar doel kan zien en beantwoorden, dat verborgen gekoppelde
   doelen geen acceptatie of doelinhoud openen, dat Gijs en Bas niet namens Sam
   kunnen lezen of muteren, en dat insert gesloten blijft;
+- `mijn_dag_doel_attenties_rls.test.sql` maakt eigen rollback-testdata voor
+  read-only doelen onder aandacht;
+- doel-attentie-RLS bewijst dat `voorgesteld` en `later_bekijken` actieve
+  read-only aandacht kunnen zijn wanneer het gekoppelde doel via doel-RLS
+  zichtbaar is, dat een verborgen doel geen doelkaart wordt, dat Gijs Sams
+  doelacceptaties niet ziet en dat `geweigerd`/`geaccepteerd` niet als actieve
+  doel-attentie worden samengesteld;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 

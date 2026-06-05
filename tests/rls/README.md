@@ -30,6 +30,8 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
   een zichtbare attentie geen verboden document opent;
 - `doelacceptaties_rls.test.sql` bevat minimale eigen-profiel grenzen voor
   doelacceptaties rond zichtbare en verborgen doelen;
+- `mijn_dag_doel_attenties_rls.test.sql` bevat read-only Mijn dag-grenzen voor
+  doel-attenties via doelacceptaties en doel-RLS;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -77,6 +79,10 @@ Bewezen domeinen:
    doelacceptaties wanneer het gekoppelde doel via `can_view_doel` zichtbaar
    is; verborgen doelen blijven dicht, Gijs en Bas kunnen Sams acceptatie niet
    lezen of muteren, en insert blijft gesloten.
+10. Mijn dag doel-attenties: Sam krijgt alleen read-only doel-attenties voor
+    eigen `voorgesteld` en `later_bekijken` acceptaties wanneer het doel zelf
+    via doel-RLS zichtbaar is; verborgen doelen, Gijs, `geweigerd` en
+    `geaccepteerd` blijven buiten actieve Mijn dag-doelattentie.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
@@ -86,9 +92,9 @@ Volgende aanbevolen RLS-scenario's na deze basis:
    contexten en volledige flows na Fase 2.
 3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
    ticketsysteem of chatlaag te introduceren.
-4. Mijn dag-compositie: later uitbreiden met read-only doelen onder aandacht
-   nadat de doel-attentiecompositie expliciet is ontworpen.
+4. Mijn dag-compositie: later uitbreiden met UI-weergave voor read-only doelen
+   onder aandacht, zonder acceptatieknoppen of doelmutaties.
 
-Open RLS-punt: doelen onder aandacht hebben nu een minimale
-`doelacceptaties`-policybasis, maar nog geen Mijn dag-compositie, doelenkaart of
-acceptatieformulier.
+Open RLS-punt: doelen onder aandacht hebben nu RLS-bewijs en read-only
+compositievoorbereiding, maar nog geen zichtbare Mijn dag-doelenkaart,
+acceptatieformulier of muterende flow.
