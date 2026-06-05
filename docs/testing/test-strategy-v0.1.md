@@ -133,7 +133,7 @@ Bewezen RLS-domeinen:
 | Voorstellen | Sam kan zijn eigen open voorstel zien en via `beantwoord_moment_voorstel` weigeren; Gijs ziet Sams voorstel niet; Bas kan niet namens Sam antwoorden. |
 | Gastcontext | Gijs kan een expliciet gasttoegankelijk moment en zijn eigen gastdeelname zien; Gijs kan een bewonersmoment en intern medewerkersdocument niet zien. |
 | Begeleidingsnotities | Milan kan een notitie in een toegestane momentcontext aanmaken en zien; Sam kan die niet zien of aanmaken; Gijs kan die als gast niet zien. |
-| Supportvragen | Sam kan zijn eigen supportvraag zien; Sanne kan die als systeemondersteuner zien en in behandeling zetten; Sam kan niet sluiten zonder supportantwoord; Gijs kan de supportvraag niet zien of muteren. |
+| Supportvragen | Sam kan zijn eigen supportvraag zien; Sanne kan die als systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag niet zien of muteren. |
 
 Aanbevolen volgorde:
 

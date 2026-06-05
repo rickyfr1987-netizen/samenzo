@@ -47,8 +47,8 @@ Bewezen domeinen:
    aanmaken en zien; Sam kan die notitie niet zien of aanmaken; Gijs kan die
    notitie als gast niet zien.
 5. Supportvragen: Sam kan zijn eigen supportvraag zien; Sanne kan die als
-   systeemondersteuner zien en in behandeling zetten; Sam kan niet sluiten
-   zonder supportantwoord; Gijs kan de supportvraag niet zien of muteren.
+   systeemondersteuner zien en in behandeling zetten; Gijs kan de supportvraag
+   niet zien of muteren.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 

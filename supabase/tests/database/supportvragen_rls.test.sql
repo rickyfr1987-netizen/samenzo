@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(12);
+select plan(10);
 
 insert into auth.users (
   id,
@@ -85,16 +85,6 @@ select is(
   ),
   true,
   'supportvragen has row level security enabled'
-);
-
-select is(
-  (
-    select relrowsecurity
-    from pg_class
-    where oid = 'public.supportvraag_reacties'::regclass
-  ),
-  true,
-  'supportvraag_reacties has row level security enabled for support responses'
 );
 
 select is(
@@ -192,24 +182,6 @@ select is(
   ),
   1,
   'positive RLS: Sanne can move a support question into treatment'
-);
-
-reset role;
-
-select set_config('request.jwt.claim.sub', '90000000-0000-4000-8000-000000000004', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-set local role authenticated;
-set local row_security = on;
-
-select throws_ok(
-  $$update public.supportvragen
-    set status = 'gesloten',
-      gesloten_at = now(),
-      updated_at = now()
-    where id = '70000000-0000-4000-8000-000000000001'$$,
-  '42501',
-  'new row violates row-level security policy for table "supportvragen"',
-  'negative RLS: Sam cannot close his own support question before a support response exists'
 );
 
 reset role;

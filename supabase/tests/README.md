@@ -52,8 +52,7 @@ Huidige RLS-basis:
   Gijs;
 - supportvragen-RLS bewijst dat Sam zijn eigen supportvraag kan zien, Sanne als
   systeemondersteuner de supportvraag kan zien en in behandeling kan zetten,
-  Sam de vraag niet zonder supportantwoord kan sluiten en Gijs de supportvraag
-  niet kan zien of muteren;
+  en Gijs de supportvraag niet kan zien of muteren;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 
