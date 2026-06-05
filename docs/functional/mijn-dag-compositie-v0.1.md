@@ -82,7 +82,7 @@ Mijn dag is niet:
 | Definitief moment via deelname | `deelnames` + `momenten` | Bouwen/handhaven | Lezen; mutaties later beperkt | Basis aanwezig, bredere matrix later |
 | Geclaimde rol | `rolbezettingen` + `momentrollen` + `momenten` | Bouwen/handhaven | Lezen; vrijgeven later | Basis aanwezig, specifieke Mijn dag-RLS later |
 | Open momentvoorstel | `voorstellen` + gekoppeld `moment` | Bouwen/handhaven | Accepteren/weigeren alleen eigen profiel | Voorstellen-RLS bewezen voor kernpad |
-| Persoonlijk moment | `momenten` met eigenaar-profiel en/of `deelnames` | Specificeren voor bouw | Eigen profiel definitief, ander profiel voorstel | Extra RLS-test nodig |
+| Persoonlijk moment | `momenten` met eigenaar-profiel en/of `deelnames` | Read-only voorbereiden | Eigen profiel definitief, ander profiel voorstel | Eigenaar-profiel RLS bewezen in Stap 2E |
 | Individuele activiteit | Persoonlijk of kleinschalig `moment` | Specificeren voor bouw | Zelf definitief, ander profiel voorstel | Extra RLS-test nodig |
 | Taak | `taakuitvoerders` + `taken` + `lijsten` | Eerst read-only | Afvinken later na resetdata | Read policies aanwezig, mutaties apart |
 | Aandachtspunt | Tijdlijn, Signalen, Support, Voorstellen | Bouwen als compositie | Afhandelen later per bron | Bron-RLS leidend |
@@ -251,8 +251,8 @@ Status/voorstelregel:
 - eigen profiel maakt definitief persoonlijk moment wanneer RLS dit later
   toestaat;
 - begeleider naar client maakt voorstel, geen definitief persoonlijk moment;
-- eigenaar-profiel alleen is genoeg als functionele intentie, maar moet in code
-  en RLS nog expliciet worden ondersteund.
+- eigenaar-profiel alleen is genoeg als functionele intentie en is in Stap 2E
+  read-only bewezen voor RLS en compositie.
 
 Datumregel:
 
@@ -261,8 +261,9 @@ Datumregel:
 
 Actiebeleid:
 
-- Stap 2C mag dit nog niet bouwen zonder RLS-test en testdata;
-- eerst queryregel en RLS-scenario specificeren.
+- Stap 2E mag dit read-only tonen nadat RLS-testdata bewijst dat
+  eigenaar-profiel zichtbaarheid correct begrensd is;
+- aanmaken, wijzigen en begeleider-naar-client blijven later voorstelgestuurd.
 
 RLS/privacyrisico:
 
@@ -596,7 +597,7 @@ MVP-keuze:
 | Gat | Effect | Vereist voor bouw |
 | --- | --- | --- |
 | `doelacceptaties` heeft RLS maar geen policy | Doelacceptatie is functioneel geblokkeerd | Policy + pgTAP-test voor doelen in Mijn dag |
-| Persoonlijk moment via eigenaar-profiel niet bewezen | Eigenaar-profiel-moment kan buiten beeld vallen of verkeerd zichtbaar worden | RLS-test en queryspecificatie |
+| Persoonlijk moment via eigenaar-profiel alleen read-only bewezen | Eigenaar-profiel-moment is zichtbaar als persoonlijke relatie, maar heeft nog geen veilige maak- of voorstelroute | Muterende flow + voorstel-RLS per vervolgstap |
 | Document onder aandacht heeft geen vast attentiemodel | Attentie kan documenttoegang lekken of onduidelijk zijn | Attentiedefinitie + document-RLS-test |
 | Voorsteltypes buiten moment ontbreken | Taak/doel/document/persoonlijk moment kunnen nog niet veilig voorstelgestuurd | Nieuwe RPC/policy/test per type |
 | Mijn dag als samengestelde query niet RLS-getest | Tabel-RLS kan kloppen terwijl compositie privacy lekt | Compositie-scenario's in pgTAP |
@@ -627,8 +628,10 @@ nodig.
 Fase 2 Stap 2C voegt voor de eerste veilige compositie rollback-pgTAP-testdata
 toe in `supabase/tests/database/mijn_dag_compositie_rls.test.sql`. Die test
 dekt deelname, rolbezetting, open momentvoorstel, read-only taakrelatie en
-profielgerichte aandacht af. Persoonlijke momenten, document-attenties en doelen
-onder aandacht blijven bewust buiten deze eerste suite.
+profielgerichte aandacht af. Fase 2 Stap 2E voegt
+`supabase/tests/database/mijn_dag_persoonlijke_momenten_rls.test.sql` toe voor
+persoonlijke eigenaar-profiel momenten zonder deelname, inclusief gastcontext.
+Document-attenties en doelen onder aandacht blijven bewust buiten deze suites.
 
 ## 11. Aanbevolen bouwvolgorde
 

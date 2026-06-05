@@ -4,8 +4,9 @@ Deze map bevat Supabase-specifieke testbestanden. Fase 1 Stap 1B voegde de
 eerste uitvoerbare pgTAP/RLS-basis toe in `supabase/tests/database/`; Fase 1
 Stap 1C breidde die basis uit naar voorstellen, Stap 1D voegde gastcontext toe,
 Stap 1E voegde minimale begeleidingsnotities-RLS toe, Stap 1F voegde minimale
-supportvragen-RLS toe en Fase 2 Stap 2C voegt een eerste
-Mijn dag-compositie-RLS-suite toe.
+supportvragen-RLS toe, Fase 2 Stap 2C voegt een eerste
+Mijn dag-compositie-RLS-suite toe en Fase 2 Stap 2E voegt eigenaar-profiel
+persoonlijke momenten toe als read-only RLS-pad.
 
 Draaien:
 
@@ -61,12 +62,18 @@ Huidige RLS-basis:
   rolbezetting de gekoppelde momentcontext ziet, Gijs Sams persoonlijke
   relaties en aandacht niet ziet, en groepscontext alleen geen profielgerichte
   Mijn dag-aandacht is;
+- `mijn_dag_persoonlijke_momenten_rls.test.sql` maakt eigen rollback-testdata
+  voor eigenaar-profiel persoonlijke momenten zonder deelname;
+- persoonlijke-momenten-RLS bewijst dat Sam en Milan hun eigen eigenaar-profiel
+  moment zien, Gijs Sams moment niet ziet, gearchiveerde eigenaar-momenten
+  gesloten blijven en Gijs als gast alleen een eigen persoonlijk moment ziet
+  wanneer `gasttoegang` expliciet aan staat;
 - GitHub Actions voert dezelfde test uit via `npm run test:rls`;
 - er worden geen remote of linked Supabase-projecten geraakt.
 
 Deze minimale tests rond begeleidingsnotities, supportvragen en Mijn dag-
-compositie ronden die domeinen niet functioneel af. De Mijn dag-test bouwt geen
-UI, geen query-compositielaag en geen browserflow. Support blijft hier lichte
+compositie ronden die domeinen niet functioneel af. De Mijn dag-tests bouwen
+geen UI, geen muterende flow en geen browserflow. Support blijft hier lichte
 tijdlijn-support en wordt geen ticketmodule. Realistische individuele contexten
 en volledige flows blijven bewust later, na Fase 2.
 

@@ -20,6 +20,13 @@ type DeelnameWithMoment = Pick<Tables<"deelnames">, "id" | "status"> & {
   momenten: MomentForMijnDag | null;
 };
 
+const MIJN_DAG_PERSONAL_MOMENT_STATUSES: Tables<"momenten">["status"][] = [
+  "gepland",
+  "open",
+  "vol",
+  "gewijzigd"
+];
+
 const MIJN_DAG_DEELNAME_STATUSES: Tables<"deelnames">["status"][] = [
   "voorgesteld",
   "uitgenodigd",
@@ -43,7 +50,13 @@ type RolbezettingWithMomentrol = Pick<
 };
 
 export type MijnDagItemReason = {
-  type: "deelname" | "rolbezetting" | "voorstel" | "taak" | "aandacht";
+  type:
+    | "persoonlijk_moment"
+    | "deelname"
+    | "rolbezetting"
+    | "voorstel"
+    | "taak"
+    | "aandacht";
   label: string;
   status: string;
 };
@@ -68,6 +81,7 @@ export type MijnDagTaskItem = MijnDagItem & {
 };
 
 const MIJN_DAG_REASON_PRIORITY: Record<MijnDagItemReason["type"], number> = {
+  persoonlijk_moment: 1,
   deelname: 1,
   rolbezetting: 2,
   voorstel: 3,
@@ -299,11 +313,12 @@ export async function fetchMijnDagItems(
 ): Promise<MijnDagItem[]> {
   const supabase = getSupabaseBrowserClient();
 
-  const [deelnamesResult, rolbezettingenResult] = await Promise.all([
-    supabase
-      .from("deelnames")
-      .select(
-        `
+  const [deelnamesResult, rolbezettingenResult, persoonlijkeMomentenResult] =
+    await Promise.all([
+      supabase
+        .from("deelnames")
+        .select(
+          `
           id,
           status,
           momenten (
@@ -320,14 +335,14 @@ export async function fetchMijnDagItems(
             )
           )
         `
-      )
-      .eq("profiel_id", profielId)
-      .is("archived_at", null)
-      .in("status", MIJN_DAG_DEELNAME_STATUSES),
-    supabase
-      .from("rolbezettingen")
-      .select(
-        `
+        )
+        .eq("profiel_id", profielId)
+        .is("archived_at", null)
+        .in("status", MIJN_DAG_DEELNAME_STATUSES),
+      supabase
+        .from("rolbezettingen")
+        .select(
+          `
           id,
           status,
           momentrollen (
@@ -350,10 +365,30 @@ export async function fetchMijnDagItems(
             )
           )
         `
-      )
-      .eq("profiel_id", profielId)
-      .eq("status", "actief")
-  ]);
+        )
+        .eq("profiel_id", profielId)
+        .eq("status", "actief"),
+      supabase
+        .from("momenten")
+        .select(
+          `
+          id,
+          titel,
+          beschrijving,
+          start_at,
+          eind_at,
+          hele_dag,
+          locatie,
+          status,
+          categorieen (
+            naam
+          )
+        `
+        )
+        .eq("eigenaar_profiel_id", profielId)
+        .is("archived_at", null)
+        .in("status", MIJN_DAG_PERSONAL_MOMENT_STATUSES)
+    ]);
 
   if (deelnamesResult.error) {
     throw new Error(deelnamesResult.error.message);
@@ -363,7 +398,28 @@ export async function fetchMijnDagItems(
     throw new Error(rolbezettingenResult.error.message);
   }
 
+  if (persoonlijkeMomentenResult.error) {
+    throw new Error(persoonlijkeMomentenResult.error.message);
+  }
+
   const itemsByMomentId = new Map<string, MijnDagItem>();
+
+  ((persoonlijkeMomentenResult.data ?? []) as MomentForMijnDag[]).forEach(
+    (moment) => {
+      if (
+        !MIJN_DAG_PERSONAL_MOMENT_STATUSES.includes(moment.status) ||
+        !isMomentOnDay(moment, day)
+      ) {
+        return;
+      }
+
+      upsertMomentItem(itemsByMomentId, moment, {
+        type: "persoonlijk_moment",
+        label: "Persoonlijk moment",
+        status: moment.status
+      });
+    }
+  );
 
   ((deelnamesResult.data ?? []) as DeelnameWithMoment[]).forEach(
     (deelname) => {

@@ -23,6 +23,8 @@ Fase 1 bouwt nog geen volledige RLS-suite. De huidige bewijslaag is:
 - `mijn_dag_compositie_rls.test.sql` bevat de eerste Mijn dag-compositiegrenzen
   voor deelname, rolbezetting, open momentvoorstel, read-only taakrelatie en
   profielgerichte aandacht;
+- `mijn_dag_persoonlijke_momenten_rls.test.sql` bevat eigenaar-profiel
+  persoonlijke momenten zonder deelname, inclusief gastcontextgrenzen;
 - tests gebruiken tijdelijke lokale Auth-users binnen een rollback-transactie;
 - tests mogen geen service-role gebruiken om gebruikersgedrag te bewijzen.
 
@@ -60,6 +62,9 @@ Bewezen domeinen:
    taakrelatie en profielgerichte aandacht; Milan ziet via eigen rolbezetting
    de gekoppelde momentcontext; Gijs ziet Sams persoonlijke relaties/aandacht niet;
    groepscontext alleen is geen profielgerichte Mijn dag-aandacht.
+7. Mijn dag persoonlijke momenten: Sam en Milan zien hun eigen eigenaar-profiel
+   moment zonder deelname; Gijs ziet Sams moment niet; Gijs ziet een eigen
+   persoonlijk moment alleen wanneer `gasttoegang` expliciet aan staat.
 
 Volgende aanbevolen RLS-scenario's na deze basis:
 
@@ -69,9 +74,9 @@ Volgende aanbevolen RLS-scenario's na deze basis:
    contexten en volledige flows na Fase 2.
 3. Supportvragen: later uitbreiden met volledige reactie- en sluitflows, zonder
    ticketsysteem of chatlaag te introduceren.
-4. Mijn dag-compositie: later uitbreiden met persoonlijke momenten,
-   document-attenties en doelen onder aandacht nadat de benodigde policies,
-   testdata en specificaties expliciet zijn toegevoegd.
+4. Mijn dag-compositie: later uitbreiden met document-attenties en doelen onder
+   aandacht nadat de benodigde policies, testdata en specificaties expliciet
+   zijn toegevoegd.
 
 Open RLS-punt: `doelacceptaties` heeft RLS aan, maar lijkt nog geen actuele
 policy te hebben. Dit blijft bewust onopgelost in Stap 1A.

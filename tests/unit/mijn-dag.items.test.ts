@@ -104,6 +104,12 @@ describe("Mijn dag itemcompositie", () => {
             ],
             error: null
           }
+        ],
+        momenten: [
+          {
+            data: [],
+            error: null
+          }
         ]
       })
     } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
@@ -127,6 +133,88 @@ describe("Mijn dag itemcompositie", () => {
         status: "geaccepteerd"
       }
     ]);
+  });
+
+  it("toont een eigenaar-profiel moment zonder deelname als persoonlijk moment", async () => {
+    const personalMoment = createMoment({
+      id: "persoonlijk-moment-1",
+      titel: "Rustige ochtend",
+      beschrijving: "Eigen persoonlijk moment zonder deelname.",
+      status: "open"
+    });
+
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        deelnames: [
+          {
+            data: [],
+            error: null
+          }
+        ],
+        rolbezettingen: [
+          {
+            data: [],
+            error: null
+          }
+        ],
+        momenten: [
+          {
+            data: [personalMoment],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagItems("profiel-sam", selectedDay);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: "persoonlijk-moment-1",
+      title: "Rustige ochtend",
+      status: "open"
+    });
+    expect(items[0].reasons).toEqual([
+      {
+        type: "persoonlijk_moment",
+        label: "Persoonlijk moment",
+        status: "open"
+      }
+    ]);
+  });
+
+  it("toont geen afgehandeld eigenaar-profiel moment in actieve Mijn dag", async () => {
+    getSupabaseBrowserClientMock.mockReturnValue({
+      from: createFromMock({
+        deelnames: [
+          {
+            data: [],
+            error: null
+          }
+        ],
+        rolbezettingen: [
+          {
+            data: [],
+            error: null
+          }
+        ],
+        momenten: [
+          {
+            data: [
+              createMoment({
+                id: "afgerond-persoonlijk-moment",
+                status: "afgerond"
+              })
+            ],
+            error: null
+          }
+        ]
+      })
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    const items = await fetchMijnDagItems("profiel-sam", selectedDay);
+
+    expect(items).toEqual([]);
   });
 
   it("toont alleen actieve read-only taken op de gekozen dag", async () => {
