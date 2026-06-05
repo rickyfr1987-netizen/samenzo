@@ -148,6 +148,18 @@ begin
       '2026-06-12 00:00:00+02',
       '2026-07-12 00:00:00+02',
       bas_persoon
+    ),
+    (
+      '89410000-0000-4000-8000-000000000003',
+      '2G Sam tweede voorgesteld doel',
+      'Rollback-testdoel voor negatieve updatecases en later bekijken.',
+      cat_doel,
+      sam_profiel,
+      null,
+      'onder_de_aandacht',
+      '2026-06-12 00:00:00+02',
+      '2026-07-12 00:00:00+02',
+      bas_persoon
     );
 
   insert into public.doelacceptaties (
@@ -170,7 +182,7 @@ begin
     ),
     (
       '89420000-0000-4000-8000-000000000003',
-      '89410000-0000-4000-8000-000000000001',
+      '89410000-0000-4000-8000-000000000003',
       sam_profiel,
       'voorgesteld'
     );
