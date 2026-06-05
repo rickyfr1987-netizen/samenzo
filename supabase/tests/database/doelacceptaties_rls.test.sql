@@ -303,6 +303,7 @@ select throws_ok(
     )
   $$,
   '42501',
+  'new row violates row-level security policy for table "doelacceptaties"',
   'negative RLS: Sam cannot create goal acceptances without an explicit proposal flow'
 );
 
