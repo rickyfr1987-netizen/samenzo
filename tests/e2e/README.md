@@ -27,6 +27,19 @@ storage state in Git; de test logt per run opnieuw in via `/beheer/dev-login`.
 Gebruik als eerste rooktestprofiel bij voorkeur `sam.bewoner@example.test` met
 verwachte profielnaam `Sam Bewoner`.
 
+## Resetbare browserdata
+
+Voor toekomstige browserflows is er een dev-only resetfixture:
+
+- `tests/e2e/fixtures/reset-browser-data.sql`
+- `tests/e2e/fixtures/browser-data.ts`
+
+Voer de SQL alleen lokaal uit na de normale Supabase dev-seed. De fixture reset
+eigen `8e2e...` records voor voorstel, supportvraag, actieve/claimbare taak,
+actieve/claimbare rol, gastzichtbaarheid en Mijn dag op `2026-06-06`.
+Auth-wachtwoorden staan niet in Git en blijven runtime-only via de bestaande
+`SAMZO_E2E_*` variabelen.
+
 Alle e2e-tests moeten:
 
 - draaien tegen een lokale Next-app en lokale Supabase-context;

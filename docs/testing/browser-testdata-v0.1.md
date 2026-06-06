@@ -68,7 +68,33 @@ runtimevoorwaarde.
 - Bewijs: app start, dev-login werkt, profielcontext verschijnt in `/mijn-dag`.
 - Skip: veilig als runtime-authconfig ontbreekt.
 
-### C. Toekomstige muterende browserflows
+### C. Resetbare browserfixture
+
+Voor browserflows die echte beginstatussen nodig hebben is er een dev-only
+fixture buiten de migraties:
+
+- SQL: `tests/e2e/fixtures/reset-browser-data.sql`
+- TS-ankers: `tests/e2e/fixtures/browser-data.ts`
+- vaste datum: `2026-06-06`
+- vaste fictieve accounts: Bas, Sanne, Milan, Sam en Gijs uit de lokale seed
+
+Gebruik de SQL alleen tegen een lokale Supabase database na de normale dev-seed.
+De fixture is delete-then-insert en reset alleen eigen `8e2e...` records.
+Bestaande lokale `auth.users` worden alleen gekoppeld wanneer de e-mail al
+bestaat; wachtwoorden blijven runtime-only via Playwright-env.
+
+| Scenario | Actor | Beginstatus |
+| --- | --- | --- |
+| Voorstel | Sam | Open voorstel voor deelname aan een moment. |
+| Supportvraag | Sam/Sanne | Nieuwe supportvraag met tijdlijnbericht. |
+| Taak actief | Sam | Taak met actieve uitvoerder. |
+| Taak claimbaar | Medewerker | Open taak zonder uitvoerder. |
+| Rol actief | Milan | Actieve rolbezetting. |
+| Rol claimbaar | Medewerker | Open momentrol zonder bezetting. |
+| Gastzichtbaarheid | Gijs | Gastmoment zichtbaar, intern bewonersmoment als controle. |
+| Mijn dag | Sam | Vaste dagmix met voorstel, support, taak en aandachtspunt. |
+
+### D. Toekomstige muterende browserflows
 
 Muterende browserflows mogen pas worden toegevoegd als het scenario vooraf
 resetbaar is. Voorbeelden:
