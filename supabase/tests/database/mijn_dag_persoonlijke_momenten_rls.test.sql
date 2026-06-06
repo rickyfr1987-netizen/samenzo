@@ -263,7 +263,7 @@ begin
       now(),
       now()
     )
-  on conflict (persoon_id, profiel_id) do update
+  on conflict (persoon_id, profiel_id) where status = 'actief' do update
     set
       toegangstype = excluded.toegangstype,
       status = excluded.status,
