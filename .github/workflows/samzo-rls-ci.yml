@@ -116,7 +116,33 @@ jobs:
           "
 
       - name: Run pgTAP RLS tests
-        run: npm run test:rls
+        shell: bash
+        run: |
+          set -o pipefail
+
+          log_file="supabase/tests/rls-test-output.log"
+          rm -f "$log_file"
+
+          npm run test:rls 2>&1 \
+            | perl -pe 's#postgresql://[^\s]+@#postgresql://[REDACTED]@#g; s#(anon key|service_role key|jwt secret|s3 access key|s3 secret key|database url|db url|api key|secret key|access token|publishable key)(\s*[:=]\s*).*$#$1$2[REDACTED]#i; s#eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+#[JWT_REDACTED]#g; s#sb_secret_[A-Za-z0-9_-]+#[SECRET_KEY_REDACTED]#g; s#sb_publishable_[A-Za-z0-9_-]+#[PUBLISHABLE_KEY_REDACTED]#g;' \
+            | tee "$log_file"
+          test_status=${PIPESTATUS[0]}
+
+          if [ "$test_status" -ne 0 ]; then
+            echo "Process completed with exit code $test_status."
+            echo "==== Last 200 lines of $log_file ===="
+            tail -n 200 "$log_file"
+            exit "$test_status"
+          fi
+
+      - name: Upload pgTAP RLS output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rls-test-output-${{ github.run_id }}
+          path: supabase/tests/rls-test-output.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Supabase DB lint
         continue-on-error: true
