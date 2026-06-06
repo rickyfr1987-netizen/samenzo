@@ -986,4 +986,105 @@ describe("Mijn dag overzicht", () => {
     });
     expect(screen.queryByText("Wandel route")).not.toBeInTheDocument();
   });
+
+  it("sorteert Mijn dag-items deterministisch op datum, type en titel", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(createSamzoContext());
+    fetchMijnDagItemsMock.mockResolvedValue([
+      {
+        categoryName: "Dagactiviteiten",
+        description: "Moment dat later in sorteerkolom staat.",
+        endsAt: currentDayIsoAt(11),
+        id: "moment-b",
+        isAllDay: false,
+        location: "Zaal",
+        reasons: [
+          {
+            label: "Deelname",
+            status: "voorgesteld",
+            type: "deelname"
+          }
+        ],
+        startsAt: currentDayIsoAt(9),
+        status: "open",
+        title: "Moment in middag"
+      }
+    ]);
+    fetchMijnDagTaskItemsMock.mockResolvedValue([
+      {
+        assigneeStatus: "actief",
+        description: "Taak met vaste deadline.",
+        endsAt: null,
+        id: "taak-a",
+        isAllDay: false,
+        listId: "lijst-1",
+        listTitle: "Daglijst",
+        location: null,
+        reasons: [{ label: "Taak", status: "actief", type: "taak" }],
+        startsAt: currentDayIsoAt(9),
+        status: "open",
+        title: "Taak in ochtend",
+        categoryName: "Daglijst"
+      }
+    ]);
+    fetchMijnDagAcceptedGoalItemsMock.mockResolvedValue([
+      {
+        acceptanceId: "acceptatie-sorteer-doel",
+        acceptedAt: currentDayIsoAt(9),
+        categoryName: "Doel licht",
+        description: "Geaccepteerd doel op dezelfde tijd.",
+        endsAt: null,
+        goalId: "doel-sortering",
+        id: "geaccepteerd-doel-sorteren",
+        isAllDay: false,
+        location: null,
+        reasons: [
+          {
+            label: "Persoonlijk doel",
+            status: "geaccepteerd",
+            type: "doel"
+          }
+        ],
+        startsAt: currentDayIsoAt(9),
+        status: "geaccepteerd",
+        title: "Doel in ochtend"
+      }
+    ]);
+    fetchMijnDagDocumentAttentionItemsMock.mockResolvedValue([
+      {
+        categoryName: "Document algemeen",
+        description: "Documentaandacht op dezelfde tijd.",
+        documentId: "document-sortering",
+        endsAt: null,
+        id: "document-sortering",
+        isAllDay: false,
+        location: null,
+        reasons: [
+          {
+            label: "Document onder aandacht",
+            status: "actie_nodig",
+            type: "aandacht"
+          }
+        ],
+        source: "signaal",
+        sourceId: "document-signaal-sortering",
+        startsAt: currentDayIsoAt(9),
+        status: "actie_nodig",
+        title: "Document in ochtend"
+      }
+    ]);
+    fetchOpenMomentProposalsForProfileMock.mockResolvedValue([]);
+    fetchMijnDagGoalAttentionItemsMock.mockResolvedValue([]);
+    fetchVisibleTimelineItemsMock.mockResolvedValue([]);
+
+    render(<MijnDagPage />);
+
+    const kaartKoppen = await screen.findAllByRole("heading", { level: 2 });
+    const titels = kaartKoppen.map((heading) => heading.textContent);
+    expect(titels).toEqual([
+      "Moment in middag",
+      "Taak in ochtend",
+      "Doel in ochtend",
+      "Document in ochtend"
+    ]);
+  });
 });

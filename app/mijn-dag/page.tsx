@@ -104,6 +104,57 @@ function formatStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+const MIJN_DAG_DISPLAY_KIND_PRIORITIES: Record<MijnDagDisplayItem["kind"], number> =
+  {
+    moment: 0,
+    task: 1,
+    goal: 2,
+    attention: 3
+  };
+
+function getDisplayItemTimeValue(item: MijnDagDisplayItem) {
+  if (!item.startsAt) {
+    return null;
+  }
+
+  const timestamp = new Date(item.startsAt).getTime();
+  if (Number.isNaN(timestamp)) {
+    return null;
+  }
+
+  return timestamp;
+}
+
+function sortMijnDagDisplayItems(items: MijnDagDisplayItem[]) {
+  return [...items].sort((first, second) => {
+    const firstTime = getDisplayItemTimeValue(first);
+    const secondTime = getDisplayItemTimeValue(second);
+
+    if (firstTime !== null && secondTime !== null) {
+      if (firstTime !== secondTime) {
+        return firstTime - secondTime;
+      }
+    } else if (firstTime !== null) {
+      return -1;
+    } else if (secondTime !== null) {
+      return 1;
+    }
+
+    const firstKindPriority = MIJN_DAG_DISPLAY_KIND_PRIORITIES[first.kind];
+    const secondKindPriority = MIJN_DAG_DISPLAY_KIND_PRIORITIES[second.kind];
+    if (firstKindPriority !== secondKindPriority) {
+      return firstKindPriority - secondKindPriority;
+    }
+
+    const titleSort = first.title.localeCompare(second.title, "en");
+    if (titleSort !== 0) {
+      return titleSort;
+    }
+
+    return first.id.localeCompare(second.id);
+  });
+}
+
 function isDateForSelectedDay(startsAt: string | null, day: Date) {
   if (!startsAt) {
     return false;
@@ -469,19 +520,10 @@ export default function MijnDagPage() {
             date,
             new Set(mergedMomentIds.keys())
           )
-        )
-        .sort((first, second) => {
-          const firstTime = first.startsAt
-            ? new Date(first.startsAt).getTime()
-            : 0;
-          const secondTime = second.startsAt
-            ? new Date(second.startsAt).getTime()
-            : 0;
+        );
+      const sortedMerged = sortMijnDagDisplayItems(merged);
 
-          return firstTime - secondTime;
-        });
-
-      setMijnDag({ status: "ready", context, items: merged });
+      setMijnDag({ status: "ready", context, items: sortedMerged });
     } catch {
       setMijnDag({
         status: "error",
@@ -782,8 +824,8 @@ export default function MijnDagPage() {
       {mijnDag.status === "ready" &&
       !canActOnCurrentProfile &&
       context?.ownProfiel ? (
-        <div className="mijn-dag-state mijn-dag-state--error">
-          <h2>Acties niet beschikbaar</h2>
+        <div className="mijn-dag-state">
+          <h2>Alleen-lezen profiel</h2>
           <p>
             Je bekijkt momenteel {mijnDag.context.currentProfiel?.weergavenaam}.
             Voorstellen en doelacceptaties beantwoorden is alleen actief voor
