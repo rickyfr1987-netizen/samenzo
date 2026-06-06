@@ -26,6 +26,10 @@ declare
 
   moment_categorie uuid;
   lijst_categorie uuid;
+  doel_categorie uuid;
+
+  doel_uuid uuid := '8e2e9000-0000-4000-8000-000000000001'::uuid;
+  doelacceptatie_uuid uuid := '8e2e9000-0000-4000-8000-000000000002'::uuid;
 begin
   select id into bas_persoon from public.personen where email = 'bas.beheerder@example.test' limit 1;
   select id into sanne_persoon from public.personen where email = 'sanne.support@example.test' limit 1;
@@ -57,6 +61,13 @@ begin
      and entiteit_type = 'lijst'
    limit 1;
 
+  select id
+    into doel_categorie
+    from public.categorieen
+   where naam = 'Doel licht'
+     and entiteit_type = 'doel'
+   limit 1;
+
   if bas_persoon is null
      or sanne_persoon is null
      or milan_persoon is null
@@ -71,7 +82,7 @@ begin
      or medewerkers_groep is null
      or gasten_groep is null
      or moment_categorie is null
-     or lijst_categorie is null then
+    or doel_categorie is null then
     raise exception 'Missing required local seed data for e2e browser fixture';
   end if;
 
@@ -101,6 +112,15 @@ begin
 
   delete from public.signalen
    where id = '8e2e8000-0000-4000-8000-000000000001'::uuid;
+
+  delete from public.doelacceptaties
+   where id = doelacceptatie_uuid;
+
+  delete from public.doelen
+   where id = doel_uuid;
+
+  delete from public.profieltoegangen
+   where id = '8e2e9200-0000-4000-8000-000000000001'::uuid;
 
   delete from public.supportvragen
    where id = '8e2e4000-0000-4000-8000-000000000001'::uuid;
@@ -287,6 +307,74 @@ begin
     'nieuw',
     sanne_persoon,
     base_at,
+    base_at
+  );
+
+  insert into public.profieltoegangen (
+    id,
+    persoon_id,
+    profiel_id,
+    toegangstype,
+    status,
+    verleend_door_persoon_id,
+    verleend_at,
+    updated_at
+  ) values (
+    '8e2e9200-0000-4000-8000-000000000001'::uuid,
+    sam_persoon,
+    milan_profiel,
+    'meekijken',
+    'actief',
+    sam_persoon,
+    base_at,
+    base_at
+  )
+  on conflict (id) do update
+    set toegangstype = excluded.toegangstype,
+        status = excluded.status,
+        verleend_door_persoon_id = excluded.verleend_door_persoon_id,
+        verleend_at = excluded.verleend_at,
+        ingetrokken_at = null,
+        ingetrokken_door_persoon_id = null,
+        updated_at = excluded.updated_at;
+
+  insert into public.doelen (
+    id,
+    titel,
+    beschrijving,
+    categorie_id,
+    eigenaar_profiel_id,
+    eigenaar_groep_id,
+    status,
+    start_at,
+    eind_at,
+    created_at,
+    created_by_persoon_id
+  ) values (
+    doel_uuid,
+    'E2E doel onder aandacht',
+    'E2E doel voor doelacceptatie op Mijn dag.',
+    doel_categorie,
+    sam_profiel,
+    null,
+    'actief',
+    base_at + interval '1 hour',
+    base_at + interval '2 hours',
+    base_at,
+    sam_persoon
+  );
+
+  insert into public.doelacceptaties (
+    id,
+    doel_id,
+    profiel_id,
+    status,
+    created_at
+  ) values (
+    doelacceptatie_uuid,
+    doel_uuid,
+    sam_profiel,
+    'voorgesteld',
     base_at
   );
 

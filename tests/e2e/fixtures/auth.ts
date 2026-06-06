@@ -65,10 +65,12 @@ export const test = base.extend<AuthFixtures>({
       await page.getByLabel("Wachtwoord").fill(e2eAuthUser.password);
       await page.getByRole("button", { name: "Inloggen" }).click();
 
-      await expect(page.getByText("Ingelogd met Supabase Auth.")).toBeVisible({
-        timeout: 15_000
+      const authStatusRegion = page.getByRole("region", {
+        name: "Auth status"
       });
-      await expect(page.getByText(e2eAuthUser.profileName)).toBeVisible();
+
+      await expect(authStatusRegion).toContainText("Ja", { timeout: 15_000 });
+      await expect(authStatusRegion).toContainText(e2eAuthUser.profileName);
     });
   }
 });

@@ -14,8 +14,11 @@ type MomentDetailRow = Pick<
   | "status"
   | "capaciteit"
   | "inschrijving_open"
+  | "gasttoegang"
+  | "eigenaar_groep_id"
+  | "categorie_id"
 > & {
-  categorieen: Pick<Tables<"categorieen">, "naam"> | null;
+  categorieen: Pick<Tables<"categorieen">, "id" | "naam"> | null;
 };
 
 type MomentGroupRow = Pick<
@@ -70,6 +73,9 @@ export type MomentDetail = {
   status: Tables<"momenten">["status"];
   capacity: number | null;
   registrationOpen: boolean;
+  guestAccess: boolean;
+  categoryId: string | null;
+  ownerGroupId: string | null;
   categoryName: string | null;
 };
 
@@ -123,19 +129,23 @@ export async function fetchMomentDetail(
 
   const { data: moment, error: momentError } = await supabase
     .from("momenten")
-    .select(
-      `
-        id,
-        titel,
+  .select(
+        `
+          id,
+          titel,
         beschrijving,
         start_at,
         eind_at,
         hele_dag,
-        locatie,
-        status,
-        capaciteit,
-        inschrijving_open,
-        categorieen (
+          locatie,
+          status,
+          capaciteit,
+          inschrijving_open,
+          gasttoegang,
+          eigenaar_groep_id,
+          categorie_id,
+          categorieen (
+          id,
           naam
         )
       `
@@ -294,6 +304,9 @@ function mapMoment(moment: MomentDetailRow): MomentDetail {
     status: moment.status,
     capacity: moment.capaciteit,
     registrationOpen: moment.inschrijving_open,
+    guestAccess: moment.gasttoegang,
+    categoryId: moment.categorie_id,
+    ownerGroupId: moment.eigenaar_groep_id,
     categoryName: moment.categorieen?.naam ?? null
   };
 }

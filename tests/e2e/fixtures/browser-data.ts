@@ -47,4 +47,7 @@ export const e2eBrowserDataIds = {
   internalMomentGroup: "8e2e1100-0000-4000-8000-000000000004",
   samSignal: "8e2e8000-0000-4000-8000-000000000001",
   samTimelineSupport: "8e2e8100-0000-4000-8000-000000000001",
+  goalForSam: "8e2e9000-0000-4000-8000-000000000001",
+  goalAttentionAcceptanceForSam: "8e2e9000-0000-4000-8000-000000000002",
+  samToMilanProfileAccess: "8e2e9200-0000-4000-8000-000000000001",
 } as const;

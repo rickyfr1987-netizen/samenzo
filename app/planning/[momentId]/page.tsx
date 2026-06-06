@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -45,6 +45,17 @@ import {
   fetchBegeleidingsnotitiesForMoment,
   updateBegeleidingsnotitie
 } from "@/src/lib/begeleidingsnotities/items";
+import {
+  createPlanningGroupMoment,
+  updatePlanningGroupMoment,
+  archivePlanningGroupMoment
+} from "@/src/lib/planning/moment-management";
+import {
+  fetchPlanningFilterCategories,
+  fetchPlanningFilterGroups,
+  type PlanningCategoryOption,
+  type PlanningGroupOption
+} from "@/src/lib/planning/moments";
 
 type MomentDetailState =
   | { status: "loading" }
@@ -116,6 +127,32 @@ function formatNoteDate(value: string | null) {
   return noteDateFormatter.format(new Date(value));
 }
 
+function fromIsoToDateTimeInput(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toISOString().slice(0, 16);
+}
+
+function toMomentManagementCapacity(value: string): number | null {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+
+  return Number.isNaN(parsed) || !Number.isFinite(parsed) ? null : parsed;
+}
+
 const ROLE_BLOCKING_PARTICIPATION_STATUSES: MomentDetailParticipation["status"][] =
   [
     "voorgesteld",
@@ -139,6 +176,80 @@ function canManageBegeleidingsnotities(context: CurrentSamzoContext | null) {
       context?.persoon?.systeemrol === "systeembeheerder")
   );
 }
+
+function canManageMoment(context: CurrentSamzoContext | null) {
+  return context?.persoon?.systeemrol === "systeembeheerder";
+}
+
+const EDITABLE_MOMENT_STATUSES = [
+  "gepland",
+  "open",
+  "gewijzigd",
+  "geannuleerd"
+] as const;
+
+type EditableMomentStatus = (typeof EDITABLE_MOMENT_STATUSES)[number];
+
+function isEditableMomentStatus(
+  value: string
+): value is EditableMomentStatus {
+  return (EDITABLE_MOMENT_STATUSES as readonly string[]).includes(value);
+}
+
+function toManagementEditDraft(
+  moment: MomentDetailData["moment"]
+): MomentManagementEditDraft | null {
+  if (!moment || !isEditableMomentStatus(moment.status)) {
+    return null;
+  }
+
+  return {
+    title: moment.title,
+    description: moment.description ?? "",
+    categoryId: moment.categoryId ?? "",
+    groupId: moment.ownerGroupId ?? "",
+    startsAt: fromIsoToDateTimeInput(moment.startsAt),
+    endsAt: fromIsoToDateTimeInput(moment.endsAt),
+    isAllDay: moment.isAllDay,
+    location: moment.location ?? "",
+    capacity: moment.capacity ? moment.capacity.toString() : "",
+    registrationOpen: moment.registrationOpen,
+    guestAccess: moment.guestAccess,
+    status: moment.status
+  };
+}
+
+type MomentManagementCreateDraft = {
+  title: string;
+  description: string;
+  categoryId: string;
+  groupId: string;
+  startsAt: string;
+  endsAt: string;
+  isAllDay: boolean;
+  location: string;
+  capacity: string;
+  registrationOpen: boolean;
+  guestAccess: boolean;
+};
+
+type MomentManagementEditDraft = MomentManagementCreateDraft & {
+  status: EditableMomentStatus;
+};
+
+const EMPTY_MOMENT_CREATE_DRAFT: MomentManagementCreateDraft = {
+  title: "",
+  description: "",
+  categoryId: "",
+  groupId: "",
+  startsAt: "",
+  endsAt: "",
+  isAllDay: false,
+  location: "",
+  capacity: "",
+  registrationOpen: false,
+  guestAccess: false
+};
 
 function isRoleBlockingParticipationStatus(
   status: MomentDetailParticipation["status"]
@@ -235,6 +346,7 @@ export default function MomentDetailPage() {
     return Array.isArray(value) ? value[0] : value;
   }, [params.momentId]);
   const activeProfileId = useActiveProfileSwitchTrigger();
+  const router = useRouter();
   const [detailState, setDetailState] = useState<MomentDetailState>({
     status: "loading"
   });
@@ -242,6 +354,16 @@ export default function MomentDetailPage() {
     status: "idle",
     message: null
   });
+  const [managementCategories, setManagementCategories] = useState<
+    PlanningCategoryOption[]
+  >([]);
+  const [managementGroups, setManagementGroups] = useState<PlanningGroupOption[]>(
+    []
+  );
+  const [managementCreateDraft, setManagementCreateDraft] =
+    useState<MomentManagementCreateDraft>(EMPTY_MOMENT_CREATE_DRAFT);
+  const [managementEditDraft, setManagementEditDraft] =
+    useState<MomentManagementEditDraft | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteDraft, setEditingNoteDraft] = useState("");
@@ -269,6 +391,24 @@ export default function MomentDetailPage() {
             momentId
           )
         : null;
+    const canManage = canManageMoment(context);
+    const shouldEditDraft = canManage && detail.moment !== null;
+    const editDraft = shouldEditDraft ? toManagementEditDraft(detail.moment) : null;
+
+    try {
+      const [categories, groups] = canManage
+        ? await Promise.all([
+            fetchPlanningFilterCategories(),
+            fetchPlanningFilterGroups()
+          ])
+        : [[], []];
+
+      setManagementCategories(categories);
+      setManagementGroups(groups);
+    } catch (error: unknown) {
+      setManagementCategories([]);
+      setManagementGroups([]);
+    }
 
     setDetailState({
       status: "ready",
@@ -281,6 +421,7 @@ export default function MomentDetailPage() {
     setNoteDraft("");
     setEditingNoteId(null);
     setEditingNoteDraft("");
+    setManagementEditDraft(editDraft);
   }, [momentId]);
 
   useEffect(() => {
@@ -323,6 +464,171 @@ export default function MomentDetailPage() {
           error instanceof Error
             ? "Vernieuwen van het moment is niet gelukt."
             : "Vernieuwen van het moment is niet gelukt."
+      });
+    }
+  }
+
+  function parseDateTimeForMutation(label: string, value: string) {
+    const parsed = new Date(value);
+
+    if (!value.trim() || Number.isNaN(parsed.getTime())) {
+      throw new Error(`${label} is ongeldig.`);
+    }
+
+    return parsed.toISOString();
+  }
+
+  function buildManagementPayload(
+    draft: MomentManagementCreateDraft,
+    status?: EditableMomentStatus
+  ) {
+    const title = draft.title.trim();
+    const description = draft.description.trim();
+    const startsAt = parseDateTimeForMutation("Starttijd", draft.startsAt);
+    const endsAt = draft.endsAt.trim()
+      ? parseDateTimeForMutation("Eindtijd", draft.endsAt)
+      : "";
+
+    const capacity = toMomentManagementCapacity(draft.capacity);
+    if (draft.capacity.trim() && capacity === null) {
+      throw new Error("Capaciteit moet een getal zijn.");
+    }
+
+    if (draft.categoryId === "") {
+      throw new Error("Kies eerst een categorie.");
+    }
+
+    if (draft.groupId === "") {
+      throw new Error("Kies eerst een eigenaar-groep.");
+    }
+
+    return {
+      title,
+      description: description || undefined,
+      categoryId: draft.categoryId,
+      groupId: draft.groupId,
+      startsAt,
+      endsAt: endsAt || undefined,
+      isAllDay: draft.isAllDay,
+      location: draft.location.trim() || undefined,
+      capacity,
+      registrationOpen: draft.registrationOpen,
+      guestAccess: draft.guestAccess,
+      ...(status !== undefined ? { status } : {})
+    };
+  }
+
+  async function handleCreateMoment() {
+    if (actionState.status === "running") {
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Planningmoment wordt aangemaakt..."
+    });
+
+    try {
+      const payload = buildManagementPayload(managementCreateDraft);
+      const result = await createPlanningGroupMoment(payload);
+
+      setManagementCreateDraft(EMPTY_MOMENT_CREATE_DRAFT);
+      setActionState({
+        status: "success",
+        message: "Planningmoment is aangemaakt."
+      });
+      router.push(`/planning/${result.id}`);
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Aanmaken van planningmoment is niet gelukt."
+      });
+    }
+  }
+
+  async function handleUpdateMoment() {
+    if (detailState.status !== "ready" || !managementEditDraft || !momentId) {
+      setActionState({
+        status: "error",
+        message: "Dit moment kan niet worden bijgewerkt."
+      });
+      return;
+    }
+
+    if (
+      !canManageMoment(detailState.context) ||
+      !detailState.detail.moment ||
+      !EDITABLE_MOMENT_STATUSES.includes(managementEditDraft.status)
+    ) {
+      setActionState({
+        status: "error",
+        message:
+          "Je hebt geen rechten of status om dit planningmoment te wijzigen."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Planningmoment wordt bijgewerkt..."
+    });
+
+    try {
+      const payload = buildManagementPayload(managementEditDraft);
+
+      await updatePlanningGroupMoment({
+        ...payload,
+        momentId,
+        status: managementEditDraft.status
+      });
+
+      await refreshMomentDetail("Planningmoment is bijgewerkt.");
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Bijwerken van planningmoment is niet gelukt."
+      });
+    }
+  }
+
+  async function handleArchiveMoment() {
+    if (
+      detailState.status !== "ready" ||
+      !detailState.detail.moment ||
+      !canManageMoment(detailState.context)
+    ) {
+      setActionState({
+        status: "error",
+        message: "Dit moment kan niet worden gearchiveerd."
+      });
+      return;
+    }
+
+    setActionState({
+      status: "running",
+      message: "Planningmoment wordt gearchiveerd..."
+    });
+
+    try {
+      await archivePlanningGroupMoment({ momentId });
+      await loadMomentDetail();
+      setActionState({
+        status: "success",
+        message: "Planningmoment is gearchiveerd."
+      });
+    } catch (error: unknown) {
+      setActionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Archiveren van planningmoment is niet gelukt."
       });
     }
   }
@@ -798,6 +1104,13 @@ export default function MomentDetailPage() {
     Boolean(currentParticipation) &&
     isActiveParticipationStatus(currentParticipation!.status) &&
     actionState.status !== "running";
+  const canManageCurrentMoment =
+    detailState.status === "ready" &&
+    canManageMoment(detailState.context);
+  const canEditCurrentMoment =
+    canManageCurrentMoment &&
+    detailState.detail.moment !== null &&
+    isEditableMomentStatus(detailState.detail.moment.status);
   const activeParticipants =
     detailState.status === "ready"
       ? detailState.detail.participations.filter((participation) =>
@@ -902,6 +1215,459 @@ export default function MomentDetailPage() {
               <strong>RLS bepaalt wat zichtbaar is</strong>
             </div>
           </section>
+
+          {canManageCurrentMoment ? (
+            <section
+              className="moment-detail-section"
+              aria-labelledby="moment-management-heading"
+            >
+              <h2 id="moment-management-heading">Momentbeheer</h2>
+              <p className="moment-detail-action-note">
+                Alle wijzigingen in planningmomenten gaan via de gecontroleerde
+                beheer-RPC.
+              </p>
+
+              <form
+                className="moment-detail-notes-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleCreateMoment();
+                }}
+              >
+                <h3>Nieuw planningmoment maken</h3>
+                <label>
+                  <span>Titel</span>
+                  <input
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        title: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.title}
+                  />
+                </label>
+                <label>
+                  <span>Beschrijving</span>
+                  <textarea
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        description: event.target.value
+                      }))
+                    }
+                    rows={3}
+                    value={managementCreateDraft.description}
+                  />
+                </label>
+                <label>
+                  <span>Categorie</span>
+                  <select
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        categoryId: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.categoryId}
+                  >
+                    <option value="">Kies categorie</option>
+                    {managementCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Eigenaar groep</span>
+                  <select
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        groupId: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.groupId}
+                  >
+                    <option value="">Kies eigenaar-groep</option>
+                    {managementGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Starttijd</span>
+                  <input
+                    type="datetime-local"
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        startsAt: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.startsAt}
+                  />
+                </label>
+                <label>
+                  <span>Eindtijd (optioneel)</span>
+                  <input
+                    type="datetime-local"
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        endsAt: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.endsAt}
+                  />
+                </label>
+                <label>
+                  <span>Locatie</span>
+                  <input
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        location: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.location}
+                  />
+                </label>
+                <label>
+                  <span>Capaciteit</span>
+                  <input
+                    onChange={(event) =>
+                      setManagementCreateDraft((current) => ({
+                        ...current,
+                        capacity: event.target.value
+                      }))
+                    }
+                    value={managementCreateDraft.capacity}
+                    type="number"
+                  />
+                </label>
+                <label>
+                  <span>
+                    <input
+                      checked={managementCreateDraft.isAllDay}
+                      onChange={(event) =>
+                        setManagementCreateDraft((current) => ({
+                          ...current,
+                          isAllDay: event.target.checked
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    Hele dag
+                  </span>
+                </label>
+                <label>
+                  <span>
+                    <input
+                      checked={managementCreateDraft.registrationOpen}
+                      onChange={(event) =>
+                        setManagementCreateDraft((current) => ({
+                          ...current,
+                          registrationOpen: event.target.checked
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    Inschrijving staat open
+                  </span>
+                </label>
+                <label>
+                  <span>
+                    <input
+                      checked={managementCreateDraft.guestAccess}
+                      onChange={(event) =>
+                        setManagementCreateDraft((current) => ({
+                          ...current,
+                          guestAccess: event.target.checked
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    Gasten mogen deelnemen
+                  </span>
+                </label>
+                <div className="moment-detail-actions moment-detail-actions--role">
+                  <button
+                    disabled={
+                      actionState.status === "running" ||
+                      !managementCreateDraft.title.trim() ||
+                      !managementCreateDraft.startsAt
+                    }
+                    type="submit"
+                  >
+                    Planningmoment aanmaken
+                  </button>
+                </div>
+              </form>
+
+              {managementEditDraft ? (
+                <form
+                  className="moment-detail-notes-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleUpdateMoment();
+                  }}
+                >
+                  <h3>Bestaand moment beheren</h3>
+                  <label>
+                    <span>Titel</span>
+                    <input
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                title: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.title}
+                    />
+                  </label>
+                  <label>
+                    <span>Beschrijving</span>
+                    <textarea
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                description: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      rows={3}
+                      value={managementEditDraft.description}
+                    />
+                  </label>
+                  <label>
+                    <span>Status</span>
+                    <select
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                status: event.target.value as EditableMomentStatus
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.status}
+                    >
+                      {EDITABLE_MOMENT_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {formatStatus(status)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Categorie</span>
+                    <select
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                categoryId: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.categoryId}
+                    >
+                      <option value="">Kies categorie</option>
+                      {managementCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Owner groep</span>
+                    <select
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                groupId: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.groupId}
+                    >
+                      <option value="">Kies owner-groep</option>
+                      {managementGroups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Starttijd</span>
+                    <input
+                      type="datetime-local"
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                startsAt: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.startsAt}
+                    />
+                  </label>
+                  <label>
+                    <span>Eindtijd (optioneel)</span>
+                    <input
+                      type="datetime-local"
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                endsAt: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.endsAt}
+                    />
+                  </label>
+                  <label>
+                    <span>Locatie</span>
+                    <input
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                location: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      value={managementEditDraft.location}
+                    />
+                  </label>
+                  <label>
+                    <span>Capaciteit</span>
+                    <input
+                      onChange={(event) =>
+                        setManagementEditDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                capacity: event.target.value
+                              }
+                            : null
+                        )
+                      }
+                      type="number"
+                      value={managementEditDraft.capacity}
+                    />
+                  </label>
+                  <label>
+                    <span>
+                      <input
+                        checked={managementEditDraft.isAllDay}
+                        onChange={(event) =>
+                          setManagementEditDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  isAllDay: event.target.checked
+                                }
+                              : null
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      Hele dag
+                    </span>
+                  </label>
+                  <label>
+                    <span>
+                      <input
+                        checked={managementEditDraft.registrationOpen}
+                        onChange={(event) =>
+                          setManagementEditDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  registrationOpen: event.target.checked
+                                }
+                              : null
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      Inschrijving staat open
+                    </span>
+                  </label>
+                  <label>
+                    <span>
+                      <input
+                        checked={managementEditDraft.guestAccess}
+                        onChange={(event) =>
+                          setManagementEditDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  guestAccess: event.target.checked
+                                }
+                              : null
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      Gasten mogen deelnemen
+                    </span>
+                  </label>
+                  <div className="moment-detail-actions moment-detail-actions--role">
+                    <button
+                      disabled={
+                        actionState.status === "running" ||
+                        !canEditCurrentMoment ||
+                        !managementEditDraft.title.trim() ||
+                        !managementEditDraft.startsAt
+                      }
+                      type="submit"
+                    >
+                      Moment bijwerken
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await handleArchiveMoment();
+                      }}
+                      disabled={actionState.status === "running"}
+                      type="button"
+                    >
+                      Archiveren
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </section>
+          ) : null}
 
           <section
             className="moment-detail-participation-panel"

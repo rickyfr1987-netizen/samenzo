@@ -1,8 +1,19 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import MomentDetailPage from "@/app/planning/[momentId]/page";
 import LijstDetailPage from "@/app/lijsten/[lijstId]/page";
+import {
+  archivePlanningGroupMoment,
+  createPlanningGroupMoment,
+  updatePlanningGroupMoment
+} from "@/src/lib/planning/moment-management";
 import {
   fetchCurrentSamzoContext,
   type CurrentSamzoContext,
@@ -31,15 +42,41 @@ import {
   fetchMomentDetail,
   type MomentDetailData
 } from "@/src/lib/moment/detail";
+import {
+  fetchPlanningFilterCategories,
+  fetchPlanningFilterGroups,
+  type PlanningCategoryOption,
+  type PlanningGroupOption
+} from "@/src/lib/planning/moments";
 import { fetchOpenVoorstelForProfileAndMoment } from "@/src/lib/voorstellen/items";
 import { createSamzoContext, SAM_PROFILE_ID, BAS_PROFILE_ID } from "@/tests/fixtures/samzo";
 
 const momentId = "moment-001";
 const lijstId = "lijst-001";
 
+const pushMock = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useParams: vi.fn(() => ({ momentId, lijstId }))
+  useParams: vi.fn(() => ({ momentId, lijstId })),
+  useRouter: vi.fn(() => ({ push: pushMock }))
 }));
+
+vi.mock("@/src/lib/planning/moment-management", () => ({
+  createPlanningGroupMoment: vi.fn(),
+  updatePlanningGroupMoment: vi.fn(),
+  archivePlanningGroupMoment: vi.fn()
+}));
+
+vi.mock("@/src/lib/planning/moments", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/src/lib/planning/moments")>();
+
+  return {
+    ...actual,
+    fetchPlanningFilterCategories: vi.fn(),
+    fetchPlanningFilterGroups: vi.fn()
+  };
+});
 
 vi.mock("@/src/lib/samzo/current-context", () => ({
   fetchCurrentSamzoContext: vi.fn(),
@@ -98,6 +135,8 @@ const fetchLijstenForMomentMock = vi.mocked(fetchLijstenForMoment);
 const fetchOpenVoorstelForProfileAndMomentMock = vi.mocked(
   fetchOpenVoorstelForProfileAndMoment
 );
+const fetchPlanningFilterCategoriesMock = vi.mocked(fetchPlanningFilterCategories);
+const fetchPlanningFilterGroupsMock = vi.mocked(fetchPlanningFilterGroups);
 const fetchLijstDetailMock = vi.mocked(fetchLijstDetail);
 const fetchBegeleidingsnotitiesForMomentMock = vi.mocked(
   fetchBegeleidingsnotitiesForMoment
@@ -113,26 +152,41 @@ const createBegeleidingsnotitieForLijstMock = vi.mocked(
 );
 const updateBegeleidingsnotitieMock = vi.mocked(updateBegeleidingsnotitie);
 const archiveBegeleidingsnotitieMock = vi.mocked(archiveBegeleidingsnotitie);
+const createPlanningGroupMomentMock = vi.mocked(createPlanningGroupMoment);
+const updatePlanningGroupMomentMock = vi.mocked(updatePlanningGroupMoment);
+const archivePlanningGroupMomentMock = vi.mocked(archivePlanningGroupMoment);
 
-function createMomentDetail(overrides: Partial<MomentDetailData> = {}): MomentDetailData {
+type MomentDetailOverrides = Partial<
+  Omit<MomentDetailData, "moment">
+> & {
+  moment?: Partial<NonNullable<MomentDetailData["moment"]>>;
+};
+
+function createMomentDetail(overrides: MomentDetailOverrides = {}): MomentDetailData {
+  const { moment: momentOverrides, ...otherOverrides } = overrides;
+  const baseMoment: NonNullable<MomentDetailData["moment"]> = {
+    id: momentId,
+    title: "Teamstart",
+    description: "Rustige start van de dag.",
+    startsAt: "2026-06-04T09:00:00.000Z",
+    endsAt: null,
+    isAllDay: false,
+    location: "Zaal 1",
+    status: "open",
+    capacity: null,
+    registrationOpen: true,
+    guestAccess: false,
+    categoryId: "cat-1",
+    ownerGroupId: "groep-1",
+    categoryName: "Dag"
+  };
+
   return {
-    moment: {
-      id: momentId,
-      title: "Teamstart",
-      description: "Rustige start van de dag.",
-      startsAt: "2026-06-04T09:00:00.000Z",
-      endsAt: null,
-      isAllDay: false,
-      location: "Zaal 1",
-      status: "open",
-      capacity: null,
-      registrationOpen: true,
-      categoryName: "Dag"
-    },
+    moment: { ...baseMoment, ...momentOverrides },
     groups: [],
     participations: [],
     roles: [],
-    ...overrides
+    ...otherOverrides
   };
 }
 
@@ -229,11 +283,21 @@ function createContextWithProfiles(
 
 const BASE_CONTEXT = createSamzoContext();
 
+const MANAGEMENT_CATEGORIES: PlanningCategoryOption[] = [
+  { id: "cat-1", name: "Activiteit" }
+];
+
+const MANAGEMENT_GROUPS: PlanningGroupOption[] = [
+  { id: "groep-1", name: "Bewonersgroep" }
+];
+
 beforeEach(() => {
   fetchCurrentSamzoContextMock.mockReset();
   fetchMomentDetailMock.mockReset();
   fetchLijstenForMomentMock.mockReset();
   fetchOpenVoorstelForProfileAndMomentMock.mockReset();
+  fetchPlanningFilterCategoriesMock.mockReset();
+  fetchPlanningFilterGroupsMock.mockReset();
   fetchLijstDetailMock.mockReset();
   fetchBegeleidingsnotitiesForMomentMock.mockReset();
   fetchBegeleidingsnotitiesForLijstMock.mockReset();
@@ -241,10 +305,178 @@ beforeEach(() => {
   createBegeleidingsnotitieForLijstMock.mockReset();
   updateBegeleidingsnotitieMock.mockReset();
   archiveBegeleidingsnotitieMock.mockReset();
+  createPlanningGroupMomentMock.mockReset();
+  updatePlanningGroupMomentMock.mockReset();
+  archivePlanningGroupMomentMock.mockReset();
+  pushMock.mockReset();
   window.localStorage.clear();
 });
 
 describe("Momentdetail begeleidingsnotities", () => {
+  it("toont beheeracties op de momentdetailpagina voor systeembeheerder", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createContextForRole("systeembeheerder", {
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          id: BAS_PROFILE_ID,
+          persoon_id: BAS_PROFILE_ID
+        }
+      })
+    );
+    fetchMomentDetailMock.mockResolvedValue(createMomentDetail());
+    fetchLijstenForMomentMock.mockResolvedValue([] as VisibleLijst[]);
+    fetchBegeleidingsnotitiesForMomentMock.mockResolvedValue([]);
+    fetchOpenVoorstelForProfileAndMomentMock.mockResolvedValue(null);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue(MANAGEMENT_CATEGORIES);
+    fetchPlanningFilterGroupsMock.mockResolvedValue(MANAGEMENT_GROUPS);
+
+    render(<MomentDetailPage />);
+
+    expect(await screen.findByRole("heading", { name: "Momentbeheer" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Nieuw planningmoment maken")
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Bestaand moment beheren")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Planningmoment aanmaken" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Moment bijwerken" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archiveren" })).toBeInTheDocument();
+  });
+
+  it("verbergt de beheersectie voor een niet-beheerder", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createContextForRole("medewerker", {
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          id: BAS_PROFILE_ID,
+          persoon_id: BAS_PROFILE_ID
+        }
+      })
+    );
+    fetchMomentDetailMock.mockResolvedValue(createMomentDetail());
+    fetchLijstenForMomentMock.mockResolvedValue([] as VisibleLijst[]);
+    fetchBegeleidingsnotitiesForMomentMock.mockResolvedValue([]);
+    fetchOpenVoorstelForProfileAndMomentMock.mockResolvedValue(null);
+
+    render(<MomentDetailPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Begeleidingsnotities" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Momentbeheer" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Moment bijwerken" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("kan een planningmoment aanmaken via systeembeheerderbeheer", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createContextForRole("systeembeheerder", {
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          id: BAS_PROFILE_ID,
+          persoon_id: BAS_PROFILE_ID
+        }
+      })
+    );
+    fetchMomentDetailMock.mockResolvedValue(
+      createMomentDetail({
+        moment: { categoryId: "cat-1", ownerGroupId: "groep-1" }
+      })
+    );
+    fetchLijstenForMomentMock.mockResolvedValue([] as VisibleLijst[]);
+    fetchBegeleidingsnotitiesForMomentMock.mockResolvedValue([]);
+    fetchOpenVoorstelForProfileAndMomentMock.mockResolvedValue(null);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue(MANAGEMENT_CATEGORIES);
+    fetchPlanningFilterGroupsMock.mockResolvedValue(MANAGEMENT_GROUPS);
+    createPlanningGroupMomentMock.mockResolvedValue({
+      id: "moment-new",
+      status: "gepland"
+    });
+
+    render(<MomentDetailPage />);
+
+    const managementSection = await screen.findByRole("heading", {
+      name: "Nieuw planningmoment maken"
+    });
+    const createForm = managementSection.closest("form");
+    if (!createForm) {
+      throw new Error("Kan create formulier voor momentbeheer niet vinden.");
+    }
+    const form = within(createForm);
+
+    const createTitle = form.getByLabelText("Titel");
+    const createCategory = form.getByLabelText("Categorie");
+    const createGroup = form.getByLabelText("Eigenaar groep");
+    const createStartsAt = form.getByLabelText("Starttijd");
+
+    fireEvent.change(createTitle, { target: { value: "Nieuwe start" } });
+    fireEvent.change(createCategory, { target: { value: "cat-1" } });
+    fireEvent.change(createGroup, { target: { value: "groep-1" } });
+    fireEvent.change(createStartsAt, { target: { value: "2026-06-10T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Planningmoment aanmaken" }));
+
+    await waitFor(() =>
+      expect(createPlanningGroupMomentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Nieuwe start",
+          categoryId: "cat-1",
+          groupId: "groep-1",
+          startsAt: expect.any(String),
+          isAllDay: false,
+          registrationOpen: false,
+          guestAccess: false
+        })
+      )
+    );
+    expect(pushMock).toHaveBeenCalledWith("/planning/moment-new");
+  });
+
+  it("kan een planningmoment archiveren via beheeractie", async () => {
+    fetchCurrentSamzoContextMock.mockResolvedValue(
+      createContextForRole("systeembeheerder", {
+        currentProfiel: {
+          ...createSamzoContext().currentProfiel!,
+          id: BAS_PROFILE_ID,
+          persoon_id: BAS_PROFILE_ID
+        }
+      })
+    );
+    fetchMomentDetailMock.mockResolvedValue(
+      createMomentDetail({
+        moment: { categoryId: "cat-1", ownerGroupId: "groep-1" }
+      })
+    );
+    fetchLijstenForMomentMock.mockResolvedValue([] as VisibleLijst[]);
+    fetchBegeleidingsnotitiesForMomentMock.mockResolvedValue([]);
+    fetchOpenVoorstelForProfileAndMomentMock.mockResolvedValue(null);
+    fetchPlanningFilterCategoriesMock.mockResolvedValue(MANAGEMENT_CATEGORIES);
+    fetchPlanningFilterGroupsMock.mockResolvedValue(MANAGEMENT_GROUPS);
+    archivePlanningGroupMomentMock.mockResolvedValue({
+      id: momentId,
+      status: "gearchiveerd"
+    });
+
+    render(<MomentDetailPage />);
+
+    expect(await screen.findByRole("button", { name: "Archiveren" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Archiveren" }));
+
+    await waitFor(() =>
+      expect(archivePlanningGroupMomentMock).toHaveBeenCalledWith({
+        momentId
+      })
+    );
+    expect(
+      await screen.findByText("Planningmoment is gearchiveerd.")
+    ).toBeInTheDocument();
+  });
+
   it("toont begeleidingsnotities met beheeracties wanneer beheerder mag beheren", async () => {
     fetchCurrentSamzoContextMock.mockResolvedValue(
       createContextForRole("medewerker", {
