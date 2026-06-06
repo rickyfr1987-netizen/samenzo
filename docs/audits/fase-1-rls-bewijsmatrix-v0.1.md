@@ -15,10 +15,10 @@ GitHub Actions, niet via de Shadow cloud-pc.
 | Onderdeel | Status |
 | --- | --- |
 | Workflow | `SAM&ZO RLS CI` |
-| Branch | `fase-1b-ci-rls-proof` |
-| Laatste bewezen commit | `3dec1fe` |
-| Laatste bewezen run | `27015359190` |
-| Resultaat | `success` |
+| Branches | `fase-1b-ci-rls-proof`, `fase-2-personal-items-green-base` |
+| Laatste bewezen commit | `3dec1fe` op `fase-1b-ci-rls-proof`; nieuwe run op `fase-2-personal-items-green-base` nog te bevestigen na workflow-triggerfix |
+| Laatste bewezen run | `27015359190` op `fase-1b-ci-rls-proof`; nieuwe run op `fase-2-personal-items-green-base` nog te bevestigen |
+| Resultaat | Laatste historische run `success`; stabiele vervolgbranch wacht op nieuwe CI-bevestiging |
 | Runtime | GitHub Actions Linux runner |
 | Supabase-route | `supabase start`, `supabase db reset --local`, `npm run test:rls` |
 | Seed/RLS-check | Controle op vijf leidende seed-personen, legacy seed-personen en `documenten` RLS |
@@ -30,6 +30,12 @@ De workflow draait daarnaast `npm run typecheck`, `npm run lint` en
 `npm run test`. `supabase db lint --local --fail-on none` draait non-blocking.
 GitHub Actions toont nog een niet-blokkerende waarschuwing over Node.js
 20-actions voor gebruikte actions. De workflow zelf gebruikt Node 24.
+
+Sinds Fase 0C triggert dezelfde workflow ook op push en pull requests voor
+`fase-2-personal-items-green-base`, zodat de stabiele vervolgbranch dezelfde
+lokale Supabase/RLS-bewijsroute krijgt als de oorspronkelijke
+`fase-1b-ci-rls-proof`-branch. De eerste groene run op deze stabiele branch
+moet nog als nieuw runtimebewijs worden vastgelegd.
 
 De Shadow cloud-pc heeft op dit moment geen gezonde Docker/Supabase-runtime.
 Daarom is GitHub Actions de objectieve runtime-proof-route voor RLS.
@@ -53,7 +59,7 @@ en gebruiken geen service-role om gewoon gebruikersgedrag te bewijzen.
 | --- | --- | --- | --- |
 | Hoog | `doelacceptaties` heeft RLS aan maar geen actuele policy. | Veilig in de zin dat normale gebruikers technisch afgesloten blijven, maar functioneel onvolledig en later verwarrend. | Apart besluit nemen: policy ontwerpen of bewust buiten Fase 1 houden met expliciete auditnotitie. |
 | Hoog | Playwright-authbasis en resetbare browserflows zijn nog niet versterkt. | Fase 1 mist nog browser-reproduceerbaarheid voor kernroutes. | Stap 1H voorbereiden zonder Fase 2-functionaliteit te bouwen. |
-| Hoog | Fase 2 mag niet starten zonder besluit of Fase 1 voldoende is afgerond. | RLS-basis is groen, maar browserdata en mini-audit ontbreken nog. | Eerst resterende Fase 1-stappen afronden en mini-audit uitvoeren. |
+| Hoog | Fase 2 mag niet starten zonder besluit of Fase 1 voldoende is afgerond. | RLS-basis is historisch groen en de stabiele branch heeft nu dezelfde CI-trigger, maar browserdata, mini-audit en een verse stabiele-branch-run ontbreken nog. | Eerst resterende Fase 1-stappen afronden, CI-run op `fase-2-personal-items-green-base` bevestigen en mini-audit uitvoeren. |
 | Hoog | Toekomstig gedateerde migraties kunnen later verwarring geven bij migratiebeheer. | De keten werkt in CI, maar datums na 4 juni 2026 blijven een ordeningsrisico. | Niet hernoemen zonder aparte GO; wel expliciet meenemen in mini-audit. |
 | Gemiddeld | Begeleidingsnotities zijn RLS-minimaal bewezen maar functioneel niet afgerond. | Privacykritische basis is aanwezig, volledige flows nog niet. | Later na Fase 2 of in een aparte begeleidingsnotitie-hardeningstap uitbreiden. |
 | Gemiddeld | Supportvragen zijn RLS-minimaal bewezen maar sluitflow met supportreactie is niet volledig runtime bewezen. | Minimale requester/support/grens is bewezen; volledige levenscyclus niet. | Later supportreacties en sluitflow testen zonder ticketmodule te bouwen. |

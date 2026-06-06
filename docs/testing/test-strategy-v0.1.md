@@ -134,7 +134,7 @@ De browserdata-catalogus en resetstrategie staan in
 
 | Workflow | Trigger | Doel |
 | --- | --- | --- |
-| `.github/workflows/samzo-rls-ci.yml` | `workflow_dispatch`, push naar de huidige default branch en pull requests naar de huidige default branch | Typecheck, lint, Vitest, lokale Supabase start/reset, seed/RLS-controle en pgTAP RLS-tests. |
+| `.github/workflows/samzo-rls-ci.yml` | `workflow_dispatch`, push naar `fase-1b-ci-rls-proof` en `fase-2-personal-items-green-base`, en pull requests naar die branches | Typecheck, lint, Vitest, lokale Supabase start/reset, seed/RLS-controle en pgTAP RLS-tests. |
 
 Deze workflow draait op `ubuntu-latest`, gebruikt Node 24 en installeert de
 Supabase CLI via `supabase/setup-cli@v2` met versie `2.103.0`, gelijk aan de

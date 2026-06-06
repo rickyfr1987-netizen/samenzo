@@ -52,6 +52,7 @@ runtimevoorwaarde.
 
 - Route: GitHub Actions.
 - Workflow: `SAM&ZO RLS CI`.
+- Branches: `fase-1b-ci-rls-proof` en `fase-2-personal-items-green-base`.
 - Reset: `supabase start` en `supabase db reset --local`.
 - Test: `npm run test:rls`.
 - Secrets: niet nodig.

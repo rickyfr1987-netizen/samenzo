@@ -26,7 +26,8 @@ Omdat de Shadow cloud-pc op dit moment geen gezonde Docker/WSL2-backend levert,
 is `.github/workflows/samzo-rls-ci.yml` toegevoegd als objectieve runtime-route
 voor Fase 1B. Die GitHub Actions-workflow draait op een Linux runner, gebruikt
 alleen lokale Supabase-commando's, raakt geen remote project en gebruikt geen
-secrets of wachtwoorden.
+secrets of wachtwoorden. De automatische triggers staan op
+`fase-1b-ci-rls-proof` en `fase-2-personal-items-green-base`.
 
 Huidige RLS-basis:
 

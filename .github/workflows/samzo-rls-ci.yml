@@ -5,9 +5,11 @@ on:
   push:
     branches:
       - fase-1b-ci-rls-proof
+      - fase-2-personal-items-green-base
   pull_request:
     branches:
       - fase-1b-ci-rls-proof
+      - fase-2-personal-items-green-base
 
 permissions:
   contents: read

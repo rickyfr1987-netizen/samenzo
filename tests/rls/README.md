@@ -45,7 +45,8 @@ Runtimebewijs:
 - lokaal op de Shadow cloud-pc is Supabase runtime geblokkeerd zolang
   Docker/WSL2 niet gezond is;
 - `.github/workflows/samzo-rls-ci.yml` gebruikt GitHub Actions als objectieve
-  Linux-runtime voor `supabase start`, `supabase db reset` en `npm run test:rls`;
+  Linux-runtime voor `supabase start`, `supabase db reset` en `npm run test:rls`
+  op `fase-1b-ci-rls-proof` en `fase-2-personal-items-green-base`;
 - de workflow gebruikt geen Supabase access token, geen project-ref, geen
   remote database en geen secrets;
 - Playwright en browserflows vallen buiten deze stap;
