@@ -909,13 +909,15 @@ Het gedeelde lokale testwachtwoord is niet nodig.
 
 Voorgesteld doel:
 
-- bouw nog geen formulier of plusknop;
-- maak de RLS-first basis voor eigen persoonlijk moment aanmaken vanuit Mijn
-  dag: resetbare testdata, insert-/updatepolicy of RPC-keuze en pgTAP-bewijs;
-- bewijs dat alleen het actieve eigen profiel definitieve persoonlijke momenten
-  kan maken;
-- bewijs dat begeleider-naar-client geen definitieve mutatie mag doen;
-- raak geen remote Supabase-project en geen service-role aan.
+- PARKERING: Fase 2 Stap 2O-b is op dit moment stilgezet.
+- Reden: de RLS/pgTAP-debugloop is nog niet stabiel, dus verdere muterende
+  implementatie is uitgesteld.
+- Status: directe persoonlijke items zijn nog alleen nog op specificatieniveau;
+  nog geen RPC, helper, UI, plusknop of formulier voor eigen persoonlijk moment.
+- Voor uitstel gelden nog steeds:
+  1. alleen de eigen profielhouder kan een definitief persoonlijk moment maken;
+  2. begeleider/medewerker/machtigingscontext blijft voorstelgestuurd;
+  3. terug naar implementatie zodra we opnieuw groen RLS/invariant bewijs hebben.
 
 Aanbevolen model: GPT-5.5 Codex.
 Reden: deze stap raakt persoonlijke werkelijkheid, RLS-mutaties, RPC-keuze en

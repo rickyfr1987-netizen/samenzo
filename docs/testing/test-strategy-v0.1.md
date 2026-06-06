@@ -177,7 +177,7 @@ Bewezen RLS-domeinen:
 | Mijn dag doel-attentie UI | Testing Library bewijst dat doel-attenties zichtbaar worden als aandachtkaart, naar de doelroute linken en alleen bij het eigen profiel actieknoppen tonen: `voorgesteld` krijgt accepteren/weigeren/later bekijken, `later_bekijken` alleen accepteren/weigeren. Andermans profielperspectief blijft read-only. |
 | Mijn dag geaccepteerde doelen | Unit- en componenttests bewijzen dat `geaccepteerd` als read-only persoonlijk doelitem verschijnt binnen de doelperiode vanaf acceptatie, of zonder periode alleen op de acceptatiedag; voorgestelde/later-bekijken doelen blijven aandachtitems. |
 | Doelacceptatie-acties | `beantwoord_doelacceptatie` bewijst eigen-profielacties voor `voorgesteld` naar `geaccepteerd`, `geweigerd` en `later_bekijken`, plus `later_bekijken` naar `geaccepteerd` of `geweigerd`; verborgen doelen, andermans profielcontext, beheerder/medewerkercontext, herbeantwoorden en timestampconsistentie blijven gesloten of expliciet bewezen. |
-| Directe persoonlijke items | Nog geen bewijsclaim: Stap 2N specificeert alleen dat eigen persoonlijk moment later via `momenten.eigenaar_profiel_id` RLS-first gebouwd mag worden; taken en aandachtspunten wachten op een expliciete datamodelkeuze. |
+| Directe persoonlijke items | Fase 2 Stap 2O-b staat tijdelijk geparkeerd: eigen persoonlijk moment blijft op specificatie (`momenten.eigenaar_profiel_id`) maar is nog niet RLS-proof geïmplementeerd vanwege een open pgTAP/RLS-debugloop. Geen UI/formulier/plusknop gebouwd. |
 
 Aanbevolen volgorde:
 
