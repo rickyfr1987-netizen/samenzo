@@ -42,6 +42,7 @@ Gebruikte bronlijn:
 - `docs/functional/mijn-dag-compositie-v0.1.md`
 - `docs/testing/test-strategy-v0.1.md`
 - `docs/testing/browser-testdata-v0.1.md`
+- `docs/planning/lokale-werkroute-en-modelverdeling-v0.1.md`
 - `docs/audits/*.md`
 - `app/`, `components/`, `domain/`, `hooks/`, `lib/`, `src/lib/`,
   `supabase/`, `tests/`
@@ -76,7 +77,7 @@ Belangrijkste bronbesluiten:
 | Mijn dag overzicht | Gebouwd, samengesteld | Deelnames, rollen, voorstellen, taken, document-attenties, doel-attenties, geaccepteerde doelen en profielgerichte aandacht. |
 | Planning overzicht | Gebouwd | Datum-, categorie- en statusfilter, kaartlinks, RLS-zichtbare momenten. |
 | Momentdetail | Gebouwd, deels muterend | Deelname, afmelden, voorstel beantwoorden, rol claimen/vrijgeven, begeleidingsnotitieblok. |
-| Lijsten en taken | Gebouwd, deels muterend | Lijstenoverzicht/detail, taak claimen/vrijgeven/afvinken/heropenen. |
+| Lijsten en taken | Gebouwd, deels muterend | Lijstenoverzicht/detail, groepseigen lijst-/taakbeheer-RPCs, taak claimen/vrijgeven/afvinken/heropenen. |
 | Documenten leeslaag | Gebouwd | Overzicht/detail, koppelingen naar moment/lijst/doel, document-RLS leidend. |
 | Doelen leeslaag | Gebouwd | Overzicht/detail, koppelingen; geaccepteerde doelen in Mijn dag. |
 | Doelacceptatie-acties | Gebouwd | `beantwoord_doelacceptatie` RPC, helper en Mijn dag-knoppen voor eigen profiel. |
@@ -95,7 +96,7 @@ Belangrijkste bronbesluiten:
 | Planning | Lezen/filteren/detailnavigatie | Momentcreatie, momentbeheer, volledige capaciteits-/conflictflow. |
 | Momenten | Deelname, afmelden, voorstellen, rollen | Nieuwe momenten beheren, categoriegestuurd formulier, begeleider-naar-client persoonlijk moment als voorstel. |
 | Rollen en capaciteit | Claim/vrijgave en beperkte guards | Volledige beheerflow voor rolconfiguratie per categorie en capaciteitsbeleid. |
-| Lijsten/taken | Read/write op taakuitvoerderschap en taakstatus | Lijstcreatie, taakcreatie, taakvoorstellen, taakoverdracht als voorstel. |
+| Lijsten/taken | Read/write op taakuitvoerderschap, taakstatus en smalle groepseigen beheer-RPCs | Product-UI voor lijst-/taakcreatie, taakvoorstellen, taakoverdracht als voorstel. |
 | Documenten | Informeren en veilig openen | Documentcreatie, publicatiebeheer, review/vervanging, document onder aandacht beheren. |
 | Doelen | Lezen, doel-attenties, acceptatieacties | Doelcreatie, doelbeheer, voortgang, bredere doelvoorstellen, rapportage. |
 | Tijdlijn | Berichten/signalen/support/voorstellen zichtbaar | Read-state/notificatiestatus als echte workflow, archief/historiek. |
@@ -404,14 +405,16 @@ Doel:
 Waarom nu:
 
 - Taken zijn al zichtbaar en mutaties op taakuitvoerder/status bestaan.
-- Create/manage ontbreekt nog, waardoor praktijkgebruik beperkt blijft.
+- De smalle database-route voor groepseigen create/manage is bewezen, maar
+  product-UI en voorstelroutes ontbreken nog waardoor praktijkgebruik beperkt
+  blijft.
 
 Stappen:
 
 | Stap | Model | Opdracht | Tests |
 | --- | --- | --- | --- |
 | 4A | GPT-5.5 Hoog | Ontwerp lijst-/taakcreatie: eigenaar-profiel/groep, gekoppeld moment/doel, taakuitvoerders. | Analyse + RLS-testplan. |
-| 4B | GPT-5.3 Spark Extra Hoog | Bouw smalle lijstcreate/edit/archive en taakcreate/edit-flow. | Unit, integration, pgTAP waar RLS wijzigt. |
+| 4B | GPT-5.3 Spark Extra Hoog | Afgerond op 2026-06-09 voor database/RLS: smalle lijstcreate/edit/archive en taakcreate/edit-flow. | `npm run test:rls` met `lijst_taakbeheer_rls.test.sql`; typecheck, lint, Vitest en build groen. |
 | 4C | GPT-5.5 Hoog | Ontwerp taakvoorstellen/overdracht als persoonlijke regieflow. | Geen bouw zonder GO. |
 | 4D | GPT-5.3 Spark Hoog | Bouw alleen gekozen taakvoorstelroute. | pgTAP + componenttests. |
 | 4E | GPT-5.5 Hoog | Audit Lijsten/Taken. | Audit + browserflow. |
@@ -794,81 +797,91 @@ Status GO/FIX, bestanden, tests, risico's, vervolgadvies.
 
 Advies:
 
-- Start met Fase 0B: analyseer en herstel de CI-bewijsroute voor de stabiele
-  vervolgbranch.
+- Herstel eerst de Git/GitHub-koppeling voor deze lokale map.
+- Bevestig daarna de lokale testpoorten opnieuw.
+- Haal vervolgens Fase 2C in met Playwright en resetbare browserdata.
+- Bouw daarna pas verder, bij voorkeur eerst de product-UI bovenop de reeds
+  bewezen Fase 4B lijst-/taakbeheer-RPCs.
 
 Waarom:
 
-- Zonder RLS-CI op de vervolgbranch hebben we geen betrouwbare poort voor latere
-  RLS- of privacygevoelige stappen.
-- Dit is klein, niet-productmatig en voorkomt dat we opnieuw handmatig moeten
-  zoeken naar onzichtbare pgTAP-fouten.
-- 2O-b blijft geparkeerd.
+- De lokale Docker/Supabase-runtime is nu bruikbaar, dus RLS-bewijs kan lokaal
+  plaatsvinden.
+- De huidige map heeft nog geen `.git`, waardoor versiebeheer, rollback en
+  online overdracht nog niet veilig zijn.
+- Fase 3C/3E en Fase 4B zijn ingehaald; de overgebleven open punten zijn
+  vooral Git-herstel, browserbewijs en daarna gerichte featurebouw.
+- 2O-b blijft geparkeerd totdat de aparte pgTAP-pilot voor eigen persoonlijk
+  moment groen is.
 
-Aanbevolen model:
+Aanbevolen modelverdeling:
 
-- GPT-5.5
-
-Reasoning:
-
-- Middel
-
-Korte reden:
-
-- Het is geen productfeature, maar raakt CI-bewijsroute, RLS-testpoort en
-  branchstrategie. Een korte analyse voorkomt een te brede workflowwijziging.
+| Stap | Model | Reasoning | Reden |
+| --- | --- | --- | --- |
+| Git/repo-herstel zonder history-conflict | GPT-5.3 Codex | Middel | Praktische herstelstap met beperkte scope. |
+| Git/repo-herstel met history-conflict | ChatGPT 5.5 | Hoog | Vereist analyse om lokale wijzigingen niet kwijt te raken. |
+| Lokale testpoorten opnieuw draaien | GPT-5.3 Codex | Middel | Uitvoering van bekende checks. |
+| Fase 2C Playwright-smoke herstellen | GPT-5.3 Codex | Hoog | Testfixture, lokale app en browserflow moeten samen kloppen. |
+| 2O-b persoonlijk moment herstarten | ChatGPT 5.5 eerst, daarna GPT-5.3 Codex | Extra Hoog, daarna Hoog/Extra Hoog | RLS en persoonlijke werkelijkheid raken de kernprivacy. |
+| Fase 4B product-UI bouwen | GPT-5.3 Codex | Hoog | Backend/RLS is bewezen; UI en tests zijn uitvoeringswerk. |
 
 ## 12. Eerste vervolgprompt
 
 ```text
-Model: GPT-5.5
+Model: GPT-5.3 Codex
 Reasoning: Middel
-Korte reden: Deze stap raakt geen productfunctionaliteit, maar wel de
-RLS-bewijsroute en branchstrategie. Eerst analyseren voorkomt onnodig brede
-workflowwijzigingen.
+Korte reden: Dit is een praktische herstelstap. Er wordt geen productcode,
+RLS-policy of migratie ontworpen; het doel is veilig versiebeheer herstellen.
+Als lokale en remote history conflicteren, escaleer naar ChatGPT 5.5 Hoog.
 
 Doel:
-Analyseer hoe `SAM&ZO RLS CI` betrouwbaar moet draaien voor de stabiele
-vervolgbranch na het parkeren van 2O-b.
+Herstel de Git/GitHub-koppeling voor de lokale projectmap zonder lokale
+wijzigingen kwijt te raken.
 
 Context:
-- Huidige stabiele branch: `fase-2-personal-items-green-base`
-- 2O-b is geparkeerd.
-- Geen nieuwe RLS-policy, RPC, UI of productfeature bouwen.
-- Workflowbestand: `.github/workflows/samzo-rls-ci.yml`
-- Bouwplan: `docs/planning/samzo-bouwplan-v0.1.md`
+- Lokale map: C:\Users\user\Documents\Codex\samzo-app
+- Deze map bevat op 2026-06-10 geen `.git`.
+- Lokale Docker/Supabase werkt.
+- Fase 3C/3E en Fase 4B zijn lokaal ingehaald en groen.
+- GitHub/online gebruiken we voor versiebeheer en CI, niet als vervanging voor
+  lokale RLS-bewijsvoering.
 
 Lees minimaal:
-- `.github/workflows/samzo-rls-ci.yml`
+- `docs/planning/lokale-werkroute-en-modelverdeling-v0.1.md`
+- `docs/planning/overgeslagen-stappen-v0.1.md`
 - `docs/testing/test-strategy-v0.1.md`
-- `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`
-- `tests/rls/README.md`
-- `supabase/tests/README.md`
 - `package.json`
+- `.github/workflows/samzo-rls-ci.yml`
 
-Analyseer:
-1. Op welke branches/triggers draait de workflow nu?
-2. Waarom draait de stabiele vervolgbranch nu wel/niet automatisch mee?
-3. Wat is de kleinste veilige triggerwijziging?
-4. Moet dit via push-branches, pull_request-branches of alleen
-   workflow_dispatch?
-5. Welke secrets/logging-risico's zijn er?
+Controleer:
+1. Bevestig dat `.git` lokaal ontbreekt.
+2. Vraag de juiste GitHub repo-URL of controleer of de GitHub-connector de repo
+   kan zien.
+3. Breng lokale wijzigingen in kaart voordat Git wordt geinitialiseerd of remote
+   wordt gekoppeld.
+4. Maak geen destructive git-actie.
+5. Herstel remote tracking pas wanneer duidelijk is dat lokale bestanden niet
+   overschreven worden.
 
 Niet doen:
-- Geen productcode wijzigen.
-- Geen RLS-policy wijzigen.
-- Geen migratie wijzigen.
-- Geen RPC of helper bouwen.
-- Geen UI bouwen.
-- Geen 2O-b hervatten.
+- Geen `git reset --hard`.
+- Geen `git checkout --` op lokale bestanden.
+- Geen productfeature bouwen.
+- Geen RLS-policy, migratie of RPC wijzigen.
+- Geen remote Supabase-data gebruiken.
+
+Tests na herstel:
+- `npm.cmd run typecheck`
+- `npm.cmd run lint`
+- `npm.cmd run test`
+- `npm.cmd run test:rls`
+- `npm.cmd run build`
 
 Output:
 1. Status: GO/FIX
-2. Gelezen bestanden
-3. Huidige workflowtrigger
-4. Advies triggerwijziging
-5. Risico's
-6. Exacte implementatieprompt voor GPT-5.3 Spark Middel
-7. Vraag of ik die prompt wil laten uitvoeren
+2. Repo-URL/remote status
+3. Lokale wijzigingsstatus
+4. Uitgevoerde Git-herstelstappen
+5. Testresultaten
+6. Volgende stap: Fase 2C Playwright of Fase 4B product-UI
 ```
-

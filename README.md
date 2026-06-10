@@ -32,6 +32,37 @@ in `docs/audits/` als bron van waarheid voor vervolgrondes.
 - Voeg geen nieuwe functionaliteit toe tijdens stabiliteits- of audit-rondes.
 - Commit niets automatisch zonder opdracht.
 
+## Lokale Windows/Docker setup
+
+Deze repo gebruikt Next.js met een lokale Supabase-stack. Supabase start zijn
+lokale services via Docker Desktop en heeft op Windows een werkende WSL2-backend
+nodig.
+
+Frisse Windows-PC:
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e --scope user
+winget install --id Git.Git -e
+winget install --id Docker.DockerDesktop -e
+```
+
+Als Docker Desktop meldt dat WSL ontbreekt, open PowerShell als Administrator:
+
+```powershell
+wsl --install
+```
+
+Herstart Windows daarna, open Docker Desktop tot de engine draait en run vanuit
+de repo:
+
+```powershell
+.\scripts\bootstrap-local-stack.cmd -RunRlsTests
+```
+
+De `.cmd` wrapper start PowerShell met `ExecutionPolicy Bypass` voor deze ene
+run. Het script gebruikt daarna `npm.cmd`/`npx.cmd`, zodat PowerShell execution
+policy de Node-shims niet blokkeert.
+
 ## Structuur
 
 - `app/`: Next.js routes en schermen.
