@@ -56,7 +56,9 @@ Supabase/Postgres-context.
 Documenten-RLS is het eerste bewezen domein; voorstellen-RLS is het tweede
 bewezen domein; gastcontext-RLS is het derde bewezen domein; minimale
 begeleidingsnotities-RLS is het vierde bewezen domein; minimale
-supportvragen-RLS is het vijfde bewezen domein. Fase 2 Stap 2C voegt daar een
+supportvragen-RLS is het vijfde bewezen domein. Op 2026-06-09 zijn op de
+nieuwe lokale Docker/Supabase-runtime ook planning momentbeheer en smal
+lijst-/taakbeheer bewezen met de volledige pgTAP-suite. Fase 2 Stap 2C voegt daar een
 eerste Mijn dag-compositie-RLS-suite aan toe voor deelname, rolbezetting, open
 momentvoorstel, read-only taakrelatie en profielgerichte aandacht. Fase 2 Stap
 2E voegt eigenaar-profiel persoonlijke momenten toe als read-only
@@ -81,11 +83,11 @@ voorstelgestuurd en persoonlijke taken/aandachtspunten blijven uitgesteld.
 De centrale matrix en besluitvorming staan in
 `docs/audits/fase-1-rls-bewijsmatrix-v0.1.md`.
 
-De Shadow cloud-pc kan deze lokale Supabase-runtime pas bewijzen zodra
-Docker/WSL2 gezond is. Tot die tijd gebruikt Fase 1B
-`.github/workflows/samzo-rls-ci.yml` als objectieve GitHub Actions-runtime voor
-lokale Supabase reset en RLS-tests. Deze workflow gebruikt geen Supabase access
-token, geen project-ref, geen remote database en geen secrets.
+Op 2026-06-09 is de lokale Supabase-runtime op de nieuwe eigen pc met
+Docker/WSL2 gezond genoeg bevonden voor `supabase db reset` en
+`npm run test:rls`. GitHub Actions blijft daarnaast de objectieve gedeelde
+runtime via `.github/workflows/samzo-rls-ci.yml`. Deze workflow gebruikt geen
+Supabase access token, geen project-ref, geen remote database en geen secrets.
 
 Lokale resetstrategie:
 
@@ -177,6 +179,8 @@ Bewezen RLS-domeinen:
 | Mijn dag doel-attentie UI | Testing Library bewijst dat doel-attenties zichtbaar worden als aandachtkaart, naar de doelroute linken en alleen bij het eigen profiel actieknoppen tonen: `voorgesteld` krijgt accepteren/weigeren/later bekijken, `later_bekijken` alleen accepteren/weigeren. Andermans profielperspectief blijft read-only. |
 | Mijn dag geaccepteerde doelen | Unit- en componenttests bewijzen dat `geaccepteerd` als read-only persoonlijk doelitem verschijnt binnen de doelperiode vanaf acceptatie, of zonder periode alleen op de acceptatiedag; voorgestelde/later-bekijken doelen blijven aandachtitems. |
 | Doelacceptatie-acties | `beantwoord_doelacceptatie` bewijst eigen-profielacties voor `voorgesteld` naar `geaccepteerd`, `geweigerd` en `later_bekijken`, plus `later_bekijken` naar `geaccepteerd` of `geweigerd`; verborgen doelen, andermans profielcontext, beheerder/medewerkercontext, herbeantwoorden en timestampconsistentie blijven gesloten of expliciet bewezen. |
+| Planning momentbeheer | `planning_momentbeheer_rls.test.sql` bewijst dat Bas groepmomenten kan maken, wijzigen en archiveren; Sam, Milan en Gijs krijgen geen beheerrechten; gearchiveerde momenten verdwijnen uit actieve zichtbaarheid; gasttoegang blijft expliciet; create/edit/archive maakt geen deelnames, rollen, voorstellen, tijdlijnberichten, signalen, taken of supportvragen. |
+| Lijst- en taakbeheer | `lijst_taakbeheer_rls.test.sql` bewijst dat alleen Bas groepseigen lijsten en taken kan maken, wijzigen en archiveren; beheer maakt geen actieve `taakuitvoerders` voor een ander profiel; Sam kan een zichtbare beheer-taak zelf claimen via de bestaande eigen-profielclaimflow; Milan en Gijs krijgen geen beheerrechten en Gijs ziet interne Bewonerslijsten/taken niet. |
 | Directe persoonlijke items | Fase 2 Stap 2O-b staat tijdelijk geparkeerd: eigen persoonlijk moment blijft op specificatie (`momenten.eigenaar_profiel_id`) maar is nog niet RLS-proof geïmplementeerd vanwege een open pgTAP/RLS-debugloop. Geen UI/formulier/plusknop gebouwd. |
 
 Aanbevolen volgorde:
